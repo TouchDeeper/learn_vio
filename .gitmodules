@@ -1,3 +1,6 @@
 [submodule "c2/draw_allan_ws/src/code_utils"]
 	path = c2/draw_allan_ws/src/code_utils
 	url = https://github.com/TouchDeeper/code_utils
+[submodule "c2/draw_allan_ws/src/imu_utils"]
+	path = c2/draw_allan_ws/src/imu_utils
+	url = https://github.com/TouchDeeper/imu_utils
