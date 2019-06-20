@@ -4,3 +4,6 @@
 [submodule "c2/draw_allan_ws/src/imu_utils"]
 	path = c2/draw_allan_ws/src/imu_utils
 	url = https://github.com/TouchDeeper/imu_utils
+[submodule "c2/vio_data_simulation"]
+	path = c2/vio_data_simulation
+	url = https://github.com/TouchDeeper/vio_data_simulation
