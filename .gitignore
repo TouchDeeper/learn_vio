@@ -2,3 +2,7 @@
 */*/.idea
 */*/build
 */*/devel
+bin/keyframe
+*/*/*/cmake-build-debug
+*/*/*/.idea
+c2/draw_allan_ws/bag

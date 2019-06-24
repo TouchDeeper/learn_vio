@@ -7,3 +7,9 @@
 [submodule "c2/vio_data_simulation"]
 	path = c2/vio_data_simulation
 	url = https://github.com/TouchDeeper/vio_data_simulation
+[submodule "c2/draw_allan_ws/src/vio_data_simulation"]
+	path = c2/draw_allan_ws/src/vio_data_simulation
+	url = https://github.com/TouchDeeper/vio_data_simulation
+[submodule "c2/draw_allan_ws/src/kalibr_allan"]
+	path = c2/draw_allan_ws/src/kalibr_allan
+	url = https://github.com/TouchDeeper/kalibr_allan.git
