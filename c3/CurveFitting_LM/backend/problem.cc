@@ -122,10 +122,10 @@ bool Problem::Solve(int iterations) {
             }
         }
         iter++;
-
+        // TODO:: this will cause the optimization stop too fast
         // 优化退出条件3： currentChi_ 跟第一次的chi2相比，下降了 1e6 倍则退出
-        if (sqrt(currentChi_) <= stopThresholdLM_)
-            stop = true;
+//        if (sqrt(currentChi_) <= stopThresholdLM_)
+//            stop = true;
     }
     outfile.close();
     std::cout << "problem solve cost: " << t_solve.toc() << " ms" << std::endl;
