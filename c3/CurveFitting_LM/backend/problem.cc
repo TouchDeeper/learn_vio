@@ -76,6 +76,9 @@ bool Problem::Solve(int iterations) {
     // LM 算法迭代求解
     bool stop = false;
     int iter = 0;
+    //save the lambda to txt
+    std::ofstream outfile;
+    outfile.open("../../lambda.txt",ios::trunc);
     while (!stop && (iter < iterations)) {
         std::cout << "iter: " << iter << " , chi= " << currentChi_ << " , Lambda= " << currentLambda_
                   << std::endl;
@@ -112,6 +115,7 @@ bool Problem::Solve(int iterations) {
 //                // 优化退出条件2： 如果残差 b_max 已经很小了，那就退出
 //                stop = (b_max <= 1e-12);
                 false_cnt = 0;
+                outfile<<currentLambda_<<std::endl;
             } else {
                 false_cnt++;
                 RollbackStates();   // 误差没下降，回滚
@@ -123,6 +127,7 @@ bool Problem::Solve(int iterations) {
         if (sqrt(currentChi_) <= stopThresholdLM_)
             stop = true;
     }
+    outfile.close();
     std::cout << "problem solve cost: " << t_solve.toc() << " ms" << std::endl;
     std::cout << "   makeHessian cost: " << t_hessian_cost_ << " ms" << std::endl;
     return true;
