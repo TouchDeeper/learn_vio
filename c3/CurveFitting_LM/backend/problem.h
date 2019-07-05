@@ -134,6 +134,7 @@ private:
 
     /// LM 算法中用于判断 Lambda 在上次迭代中是否可以，以及Lambda怎么缩放
     bool IsGoodStepInLM();
+    bool IsGoodStepInLM_NewUpdate();//new lambda update method
 
     /// PCG 迭代线性求解器
     VecX PCGSolver(const MatXX &A, const VecX &b, int maxIter);

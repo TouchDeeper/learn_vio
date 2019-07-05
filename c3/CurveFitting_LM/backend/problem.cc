@@ -102,7 +102,8 @@ bool Problem::Solve(int iterations) {
             // 更新状态量 X = X+ delta_x
             UpdateStates();
             // 判断当前步是否可行以及 LM 的 lambda 怎么更新
-            oneStepSuccess = IsGoodStepInLM();
+//            oneStepSuccess = IsGoodStepInLM();
+            oneStepSuccess = IsGoodStepInLM_NewUpdate();
             // 后续处理，
             if (oneStepSuccess) {
                 // 在新线性化点 构建 hessian
@@ -283,7 +284,7 @@ void Problem::RemoveLambdaHessianLM() {
 
 bool Problem::IsGoodStepInLM() {
     double scale = 0;
-    scale = delta_x_.transpose() * (currentLambda_ * delta_x_ + b_);
+    scale = delta_x_.transpose() * (currentLambda_ * delta_x_ + b_);//这里少了1/2是因为Chi2计算也省去了1/2,分子分母约掉了
     scale += 1e-3;    // make sure it's non-zero :)
 
     // recompute residuals after update state
@@ -307,6 +308,43 @@ bool Problem::IsGoodStepInLM() {
     } else {
         currentLambda_ *= ni_;
         ni_ *= 2;
+        return false;
+    }
+}
+bool Problem::IsGoodStepInLM_NewUpdate() {
+
+
+    // recompute residuals after update state
+    // 统计所有的残差
+    double tempChi = 0.0;
+    for (auto edge: edges_) {
+        edge.second->ComputeResidual();
+        tempChi += edge.second->Chi2();
+    }
+
+    auto af = -b_.transpose()*delta_x_/((currentChi_ - tempChi)/2 - 2 * b_.transpose() * delta_x_);
+
+    double scale = 0;
+
+    delta_x_ *= af[0];
+    //recompute residuals after new delta_x_
+    tempChi = 0.0;
+    for (auto edge: edges_) {
+        edge.second->ComputeResidual();
+        tempChi += edge.second->Chi2();
+    }
+
+    scale = delta_x_.transpose() * (currentLambda_ * delta_x_ + b_);//这里少了1/2是因为Chi2计算也省去了1/2,分子分母约掉了
+    scale += 1e-3;    // make sure it's non-zero :)
+    double rho = (currentChi_ - tempChi) / scale;
+    if (rho > 0 && isfinite(tempChi))   // last step was good, 误差在下降
+    {
+        currentLambda_ = (std::max)(1e-7, currentLambda_ / (1 + af[0] ));
+        ni_ = 2;
+        currentChi_ = tempChi;
+        return true;
+    } else {
+        currentLambda_ += (currentChi_ - tempChi) / ( 2 * af[0] );
         return false;
     }
 }
