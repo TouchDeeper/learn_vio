@@ -96,11 +96,14 @@ bool Problem::Solve(int iterations) {
             // 优化退出条件1： delta_x_ 很小则退出
             if (delta_x_.squaredNorm() <= 1e-6 || false_cnt > 10) {
                 stop = true;
+                outfile<<currentLambda_<<std::endl;//output the last lambda
+//                std::cout<<"delta_x_.squaredNorm() = "<<delta_x_.squaredNorm()<<"    "<<"false_cnt = "<<false_cnt<<std::endl;
                 break;
             }
 
             // 更新状态量 X = X+ delta_x
             UpdateStates();
+            outfile<<currentLambda_<<std::endl;
             // 判断当前步是否可行以及 LM 的 lambda 怎么更新
 //            oneStepSuccess = IsGoodStepInLM();
             oneStepSuccess = IsGoodStepInLM_NewUpdate();
@@ -116,7 +119,7 @@ bool Problem::Solve(int iterations) {
 //                // 优化退出条件2： 如果残差 b_max 已经很小了，那就退出
 //                stop = (b_max <= 1e-12);
                 false_cnt = 0;
-                outfile<<currentLambda_<<std::endl;
+
             } else {
                 false_cnt++;
                 RollbackStates();   // 误差没下降，回滚
