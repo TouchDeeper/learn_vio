@@ -68,8 +68,8 @@ int main()
 
             H.block(i*6,i*6,6,6) += jacobian_Ti.transpose() * jacobian_Ti;
             /// 请补充完整作业信息矩阵块的计算
-            // H.block(j*3 + 6*poseNums,j*3 + 6*poseNums,3,3) +=?????
-            // H.block(i*6,j*3 + 6*poseNums, 6,3) += ???;
+            H.block(j*3 + 6*poseNums,j*3 + 6*poseNums,3,3) +=jacobian_Pj.transpose() * jacobian_Pj;
+            H.block(i*6,j*3 + 6*poseNums, 6,3) += jacobian_Ti.transpose() * jacobian_Pj;
             H.block(j*3 + 6*poseNums,i*6 , 3,6) += jacobian_Pj.transpose() * jacobian_Ti;
         }
     }
