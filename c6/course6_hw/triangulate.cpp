@@ -7,6 +7,7 @@
 #include <Eigen/Core>
 #include <Eigen/Geometry>
 #include <Eigen/Eigenvalues>
+#include <Eigen/SVD>
 
 struct Pose
 {
@@ -61,8 +62,48 @@ int main()
     // 遍历所有的观测数据，并三角化
     Eigen::Vector3d P_est;           // 结果保存到这个变量
     P_est.setZero();
+
     /* your code begin */
- 
+    int num_sense = end_frame_id - start_frame_id + 1; //计算观测数据个数
+    int num_rows = 2 * num_sense; //compute the rows of the matrix D
+    std::cout<<"num_rows = "<<num_rows<<std::endl;
+    Eigen::MatrixXd D;
+    D.resize(num_rows,4);
+    for (int j = start_frame_id; j < end_frame_id; ++j) {
+        Eigen::Isometry3d w_P_c = Eigen::Isometry3d::Identity();
+        w_P_c.rotate(camera_pose[j].Rwc);
+        w_P_c.pretranslate(camera_pose[j].twc);
+        Eigen::Isometry3d c_P_w = Eigen::Isometry3d::Identity();
+        c_P_w = w_P_c.inverse();
+        int row_index = 2 * ( j - start_frame_id );
+        D.block(row_index,0,1,4) = camera_pose[j].uv[0] * c_P_w.matrix().row(2) - c_P_w.matrix().row(0);
+        D.block(row_index+1,0,1,4) = camera_pose[j].uv[1] * c_P_w.matrix().row(2) - c_P_w.matrix().row(1);
+    }
+    //
+    double max_D = D.maxCoeff();
+    Eigen::Matrix4d S = 1 / max_D * Eigen::Matrix4d::Identity();
+    D = D * S;
+
+    //svd
+    Eigen::Matrix4d DTD = D.transpose()*D;
+    Eigen::JacobiSVD<Eigen::MatrixXd> svd(DTD, Eigen::ComputeThinU | Eigen::ComputeThinV );
+    Eigen::Matrix4d V = svd.matrixV(), U = svd.matrixU();
+//    std::cout<<"U :\n"<<U<<std::endl;
+//    std::cout<<"V :\n"<<V<<std::endl;
+    Eigen::Matrix4d  eigenvalue_2 = U.inverse() * DTD * V.transpose().inverse(); // compute the eigenvalue S = U^-1 * A * VT * -1
+    if(eigenvalue_2(3,3) > eigenvalue_2(2,2) * 1e-14)
+    {
+        std::cout<<"triangularization invalid"<<std::endl;
+        return 0;
+    }
+//    std::cout<<"eigenvalue_2 :\n"<<eigenvalue_2<<std::endl;
+    Eigen::Vector4d P_est_S = S.inverse() * U.col(3);
+    P_est(0) = P_est_S(0)/P_est_S(3);
+    P_est(1) = P_est_S(1)/P_est_S(3);
+    P_est(2) = P_est_S(2)/P_est_S(3);
+
+
+
     /* your code end */
     
     std::cout <<"ground truth: \n"<< Pw.transpose() <<std::endl;
