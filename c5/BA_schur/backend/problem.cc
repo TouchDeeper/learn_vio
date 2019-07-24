@@ -297,11 +297,11 @@ void Problem::MakeHessian() {
             if (v_i->IsFixed()) continue;    // Hessian 里不需要添加它的信息，也就是它的雅克比为 0
 
             auto jacobian_i = jacobians[i];
-            ulong index_i = v_i->OrderingId();
+            ulong index_i = v_i->OrderingId(); // this index is the start column of this vertex in the jacobian
             ulong dim_i = v_i->LocalDimension();
 
             MatXX JtW = jacobian_i.transpose() * edge.second->Information();
-            for (size_t j = i; j < verticies.size(); ++j) {
+            for (size_t j = i; j < verticies.size(); ++j) { // the column start from i, because the JtJ is a symmetric matrix
                 auto v_j = verticies[j];
 
                 if (v_j->IsFixed()) continue;
@@ -314,11 +314,11 @@ void Problem::MakeHessian() {
                 MatXX hessian = JtW * jacobian_j;
                 // 所有的信息矩阵叠加起来
                 // TODO:: home work. 完成 H index 的填写.
-                // H.block(?,?, ?, ?).noalias() += hessian;
+                H.block(index_i,index_j, dim_i, dim_j).noalias() += hessian;
                 if (j != i) {
                     // 对称的下三角
 		    // TODO:: home work. 完成 H index 的填写.
-                    // H.block(?,?, ?, ?).noalias() += hessian.transpose();
+                     H.block(index_j,index_i, dim_j, dim_i).noalias() += hessian.transpose();
                 }
             }
             b.segment(index_i, dim_i).noalias() -= JtW * edge.second->Residual();
@@ -367,11 +367,11 @@ void Problem::SolveLinearSystem() {
         int marg_size = ordering_landmarks_;
 
         // TODO:: home work. 完成矩阵块取值，Hmm，Hpm，Hmp，bpp，bmm
-        // MatXX Hmm = Hessian_.block(?,?, ?, ?);
-        // MatXX Hpm = Hessian_.block(?,?, ?, ?);
-        // MatXX Hmp = Hessian_.block(?,?, ?, ?);
-        // VecX bpp = b_.segment(?,?);
-        // VecX bmm = b_.segment(?,?);
+         MatXX Hmm = Hessian_.block(reserve_size, reserve_size, marg_size, marg_size); //correspond to the landmark-landmark block
+         MatXX Hpm = Hessian_.block(0, reserve_size, reserve_size, marg_size); //correspond to the pose-landmark block
+         MatXX Hmp = Hessian_.block(reserve_size, 0, marg_size, reserve_size); //correspond to the landmark-pose block
+         VecX bpp = b_.segment(0,reserve_size);
+         VecX bmm = b_.segment(reserve_size,marg_size);
 
         // Hmm 是对角线矩阵，它的求逆可以直接为对角线块分别求逆，如果是逆深度，对角线块为1维的，则直接为对角线的倒数，这里可以加速
         MatXX Hmm_inv(MatXX::Zero(marg_size, marg_size));
@@ -383,8 +383,8 @@ void Problem::SolveLinearSystem() {
 
         // TODO:: home work. 完成舒尔补 Hpp, bpp 代码
         MatXX tempH = Hpm * Hmm_inv;
-        // H_pp_schur_ = Hessian_.block(?,?,?,?) - tempH * Hmp;
-        // b_pp_schur_ = bpp - ? * ?;
+        H_pp_schur_ = Hessian_.block(0,0,reserve_size,reserve_size) - tempH * Hmp;
+        b_pp_schur_ = bpp - tempH * bmm;
 
         // step2: solve Hpp * delta_x = bpp
         VecX delta_x_pp(VecX::Zero(reserve_size));
@@ -400,7 +400,7 @@ void Problem::SolveLinearSystem() {
 
         // TODO:: home work. step3: solve landmark
         VecX delta_x_ll(marg_size);
-        // delta_x_ll = ???;
+        delta_x_ll = Hmm_inv * (bmm - Hmp * delta_x_pp);
         delta_x_.tail(marg_size) = delta_x_ll;
 
     }
@@ -574,11 +574,11 @@ void Problem::TestMarginalize() {
 
     // TODO:: home work. 将变量移动到右下角
     /// 准备工作： move the marg pose to the Hmm bottown right
-    // 将 row i 移动矩阵最下面
+    // 将 row i 移动矩阵最下面, row i 下面的矩阵整体上移
     Eigen::MatrixXd temp_rows = H_marg.block(idx, 0, dim, reserve_size);
     Eigen::MatrixXd temp_botRows = H_marg.block(idx + dim, 0, reserve_size - idx - dim, reserve_size);
-    // H_marg.block(?,?,?,?) = temp_botRows;
-    // H_marg.block(?,?,?,?) = temp_rows;
+    H_marg.block(idx, 0, reserve_size - idx - dim, reserve_size) = temp_botRows;
+    H_marg.block(reserve_size - dim, 0, dim, reserve_size) = temp_rows;
 
     // 将 col i 移动矩阵最右边
     Eigen::MatrixXd temp_cols = H_marg.block(0, idx, reserve_size, dim);
@@ -588,6 +588,10 @@ void Problem::TestMarginalize() {
 
     std::cout << "---------- TEST Marg: 将变量移动到右下角------------"<< std::endl;
     std::cout<< H_marg <<std::endl;
+
+    std::cout << "---------- TEST Marg: H_marg inverse------------"<< std::endl;
+    std::cout<< H_marg.inverse() <<std::endl;
+
 
     /// 开始 marg ： schur
     double eps = 1e-8;
@@ -601,15 +605,18 @@ void Problem::TestMarginalize() {
                               saes.eigenvectors().transpose();
 
     // TODO:: home work. 完成舒尔补操作
-    //Eigen::MatrixXd Arm = H_marg.block(?,?,?,?);
-    //Eigen::MatrixXd Amr = H_marg.block(?,?,?,?);
-    //Eigen::MatrixXd Arr = H_marg.block(?,?,?,?);
+    Eigen::MatrixXd Arm = H_marg.block(0,n2,n2,m2);
+    Eigen::MatrixXd Amr = H_marg.block(n2,0,m2,n2);
+    Eigen::MatrixXd Arr = H_marg.block(0,0,n2,n2);
 
     Eigen::MatrixXd tempB = Arm * Amm_inv;
     Eigen::MatrixXd H_prior = Arr - tempB * Amr;
 
     std::cout << "---------- TEST Marg: after marg------------"<< std::endl;
     std::cout << H_prior << std::endl;
+
+    std::cout << "---------- TEST Marg: after marg, H_prior_inverse------------"<< std::endl;
+    std::cout << H_prior.inverse() << std::endl;
 }
 
 }

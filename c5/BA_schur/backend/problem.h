@@ -175,7 +175,7 @@ private:
     HashVertexIdToEdge vertexToEdge_;
 
     /// Ordering related
-    ulong ordering_poses_ = 0;
+    ulong ordering_poses_ = 0; //the size of the poses vertex
     ulong ordering_landmarks_ = 0;
     ulong ordering_generic_ = 0;
     std::map<unsigned long, std::shared_ptr<Vertex>> idx_pose_vertices_;        // 以ordering排序的pose顶点

@@ -100,12 +100,12 @@ int main() {
         noise_invd.push_back(inverse_depth);
 
         // 初始化特征 vertex
-        shared_ptr<VertexInverseDepth> verterxPoint(new VertexInverseDepth());
+        shared_ptr<VertexInverseDepth> vertexPoint(new VertexInverseDepth());
         VecX inv_d(1);
         inv_d << inverse_depth;
-        verterxPoint->SetParameters(inv_d);
-        problem.AddVertex(verterxPoint);
-        allPoints.push_back(verterxPoint);
+        vertexPoint->SetParameters(inv_d);
+        problem.AddVertex(vertexPoint);
+        allPoints.push_back(vertexPoint);
 
         // 每个特征对应的投影误差, 第 0 帧为起始帧
         for (size_t j = 1; j < cameras.size(); ++j) {
@@ -115,7 +115,7 @@ int main() {
             edge->SetTranslationImuFromCamera(qic, tic);
 
             std::vector<std::shared_ptr<Vertex> > edge_vertex;
-            edge_vertex.push_back(verterxPoint);
+            edge_vertex.push_back(vertexPoint);
             edge_vertex.push_back(vertexCams_vec[0]);
             edge_vertex.push_back(vertexCams_vec[j]);
             edge->SetVertex(edge_vertex);

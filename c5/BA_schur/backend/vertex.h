@@ -68,7 +68,7 @@ protected:
     /// ordering id是在problem中排序后的id，用于寻找雅可比对应块
     /// ordering id带有维度信息，例如ordering_id=6则对应Hessian中的第6列
     /// 从零开始
-    unsigned long ordering_id_ = 0;
+    unsigned long ordering_id_ = 0; // the start index of the vertex in the jacobian
 
     bool fixed_ = false;    // 是否固定
 };
