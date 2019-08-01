@@ -79,7 +79,7 @@ int main()
         D.block(row_index,0,1,4) = camera_pose[j].uv[0] * c_P_w.matrix().row(2) - c_P_w.matrix().row(0);
         D.block(row_index+1,0,1,4) = camera_pose[j].uv[1] * c_P_w.matrix().row(2) - c_P_w.matrix().row(1);
     }
-    //
+    //矩阵缩放，防止数值问题
     double max_D = D.maxCoeff();
     Eigen::Matrix4d S = 1 / max_D * Eigen::Matrix4d::Identity();
     D = D * S;
@@ -88,8 +88,6 @@ int main()
     Eigen::Matrix4d DTD = D.transpose()*D;
     Eigen::JacobiSVD<Eigen::MatrixXd> svd(DTD, Eigen::ComputeThinU | Eigen::ComputeThinV );
     Eigen::Matrix4d V = svd.matrixV(), U = svd.matrixU();
-//    std::cout<<"U :\n"<<U<<std::endl;
-//    std::cout<<"V :\n"<<V<<std::endl;
     Eigen::Matrix4d  eigenvalue_2 = U.inverse() * DTD * V.transpose().inverse(); // compute the eigenvalue S = U^-1 * A * VT * -1
     if(eigenvalue_2(3,3) > eigenvalue_2(2,2) * 1e-14)
     {
