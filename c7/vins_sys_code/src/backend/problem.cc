@@ -636,6 +636,7 @@ bool Problem::Marginalize(const std::vector<std::shared_ptr<Vertex> > margVertex
         }
     }
 //    std::cout << "pose dim: " << pose_dim <<std::endl;
+    //这里只对与marg掉的变量有关的边求hessian，其他无关的边在后续优化的时候会添加
     int cols = pose_dim + marg_landmark_size;
     /// 构建误差 H 矩阵 H = H_marg + H_pp_prior
     MatXX H_marg(MatXX::Zero(cols, cols));
@@ -763,6 +764,7 @@ bool Problem::Marginalize(const std::vector<std::shared_ptr<Vertex> > margVertex
     H_prior_ = Arr - tempB * Amr;
     b_prior_ = brr - tempB * bmm2;
 
+    //cholesky分解，从hessian矩阵分解出雅可比，通过雅可比可以从b_prior中恢复出error_prior
     Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> saes2(H_prior_);
     Eigen::VectorXd S = Eigen::VectorXd((saes2.eigenvalues().array() > eps).select(saes2.eigenvalues().array(), 0));
     Eigen::VectorXd S_inv = Eigen::VectorXd(

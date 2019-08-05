@@ -7,13 +7,13 @@ InitialEXRotation::InitialEXRotation(){
     Rimu.push_back(Matrix3d::Identity());
     ric = Matrix3d::Identity();
 }
-
+//标定外参的旋转矩阵
 bool InitialEXRotation::CalibrationExRotation(vector<pair<Vector3d, Vector3d>> corres, Quaterniond delta_q_imu, Matrix3d &calib_ric_result)
 {
     frame_count++;
-    Rc.push_back(solveRelativeR(corres));
-    Rimu.push_back(delta_q_imu.toRotationMatrix());
-    Rc_g.push_back(ric.inverse() * delta_q_imu * ric);
+    Rc.push_back(solveRelativeR(corres));//帧间cam的R，由对极几何得到
+    Rimu.push_back(delta_q_imu.toRotationMatrix());//帧间IMU的R，由IMU预积分得到
+    Rc_g.push_back(ric.inverse() * delta_q_imu * ric);//每帧相机相对于起始帧相机的R
 
     Eigen::MatrixXd A(frame_count * 4, 4);
     A.setZero();
@@ -25,11 +25,14 @@ bool InitialEXRotation::CalibrationExRotation(vector<pair<Vector3d, Vector3d>> c
 
         double angular_distance = 180 / M_PI * r1.angularDistance(r2);
         //ROS_DEBUG("%d %f", i, angular_distance);
-
+        //huber核函数做加权
         double huber = angular_distance > 5.0 ? 5.0 / angular_distance : 1.0;
         ++sum_ok;
         Matrix4d L, R;
 
+        //R_bk+1^bk * R_c^b = R_c^b * R_ck+1^ck
+        //[Q1(q_bk+1^bk) - Q2(q_ck+1^ck)] * q_c^b = 0
+        //L R 分别为左乘和右乘矩阵
         double w = Quaterniond(Rc[i]).w();
         Vector3d q = Quaterniond(Rc[i]).vec();
         L.block<3, 3>(0, 0) = w * Matrix3d::Identity() + Utility::skewSymmetric(q);
@@ -47,7 +50,7 @@ bool InitialEXRotation::CalibrationExRotation(vector<pair<Vector3d, Vector3d>> c
 
         A.block<4, 4>((i - 1) * 4, 0) = huber * (L - R);
     }
-
+    //svd分解中最小奇异值对应的右奇异向量作为旋转四元数
     JacobiSVD<MatrixXd> svd(A, ComputeFullU | ComputeFullV);
     Matrix<double, 4, 1> x = svd.matrixV().col(3);
     Quaterniond estimated_R(x);
@@ -56,6 +59,7 @@ bool InitialEXRotation::CalibrationExRotation(vector<pair<Vector3d, Vector3d>> c
     //cout << ric << endl;
     Vector3d ric_cov;
     ric_cov = svd.singularValues().tail<3>();
+    //至少迭代计算了WINDOW_SIZE次，且倒数第二个奇异值大于0.25才认为标定成功
     if (frame_count >= WINDOW_SIZE && ric_cov(1) > 0.25)
     {
         calib_ric_result = ric;

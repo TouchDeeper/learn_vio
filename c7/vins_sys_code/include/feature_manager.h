@@ -15,7 +15,11 @@ using namespace Eigen;
 // #include <ros/assert.h>
 
 #include "parameters.h"
-
+/**
+* @class FeaturePerFrame
+* @brief 特征类
+* detailed
+*/
 class FeaturePerFrame
 {
 public:
@@ -41,7 +45,11 @@ public:
   VectorXd b;
   double dep_gradient;
 };
-
+/**
+* @class FeaturePerId
+* @brief 某feature_id下的所有FeaturePerFrame
+* detailed
+*/
 class FeaturePerId
 {
 public:
@@ -91,7 +99,7 @@ public:
   void removeBack();
   void removeFront(int frame_count);
   void removeOutlier();
-  list<FeaturePerId> feature;
+  list<FeaturePerId> feature;//储存每个特征在光流中的信息
   int last_track_num;
 
 private:

@@ -91,7 +91,7 @@ void System::PubImageData(double dStampSec, Mat &img)
 
     TicToc t_r;
     // cout << "3 PubImageData t : " << dStampSec << endl;
-    trackerData[0].readImage(img, dStampSec);
+    trackerData[0].readImage(img, dStampSec);//这里进行了特征点跟踪，特征点速度计算
 
     for (unsigned int i = 0;; i++)
     {
@@ -111,11 +111,12 @@ void System::PubImageData(double dStampSec, Mat &img)
         {
             auto &un_pts = trackerData[i].cur_un_pts;
             auto &cur_pts = trackerData[i].cur_pts;
+            // ids储存所追踪的光流id
             auto &ids = trackerData[i].ids;
             auto &pts_velocity = trackerData[i].pts_velocity;
             for (unsigned int j = 0; j < ids.size(); j++)
             {
-                if (trackerData[i].track_cnt[j] > 1)
+                if (trackerData[i].track_cnt[j] > 1) //判断该光流是否形成追踪
                 {
                     int p_id = ids[j];
                     hash_ids[i].insert(p_id);
@@ -178,15 +179,18 @@ vector<pair<vector<ImuConstPtr>, ImgConstPtr>> System::getMeasurements()
             // cerr << "1 imu_buf.empty() || feature_buf.empty()" << endl;
             return measurements;
         }
-
+        //对齐标准：IMU最后一个数据的时间要大于第一个图像特征数据的时间
         if (!(imu_buf.back()->header > feature_buf.front()->header + estimator.td))
         {
             cerr << "wait for imu, only should happen at the beginning sum_of_wait: " 
                 << sum_of_wait << endl;
             sum_of_wait++;
+            //这里返回空的measurements
             return measurements;
+//            continue;
         }
 
+        //对齐标准：IMU第一个数据的时间要小于第一个图像特征数据的时间
         if (!(imu_buf.front()->header < feature_buf.front()->header + estimator.td))
         {
             cerr << "throw img, only should happen at the beginning" << endl;
@@ -197,12 +201,15 @@ vector<pair<vector<ImuConstPtr>, ImgConstPtr>> System::getMeasurements()
         feature_buf.pop();
 
         vector<ImuConstPtr> IMUs;
+        //图像数据(img_msg)，对应多组在时间戳内的imu数据,然后塞入measurements
         while (imu_buf.front()->header < img_msg->header + estimator.td)
         {
+            //emplace_back相比push_back能更好地避免内存的拷贝与移动
             IMUs.emplace_back(imu_buf.front());
             imu_buf.pop();
         }
         // cout << "1 getMeasurements IMUs size: " << IMUs.size() << endl;
+        //这里把下一个imu_msg也放进去了,但没有pop，因此当前图像帧和下一图像帧会共用这个imu_msg
         IMUs.emplace_back(imu_buf.front());
         if (IMUs.empty()){
             cerr << "no imu between two image" << endl;
@@ -255,7 +262,7 @@ void System::ProcessBackEnd()
             return (measurements = getMeasurements()).size() != 0;
         });
         if( measurements.size() > 1){
-        cout << "1 getMeasurements size: " << measurements.size() 
+        cout << "getMeasurements size: " << measurements.size()
             << " imu sizes: " << measurements[0].first.size()
             << " feature_buf size: " <<  feature_buf.size()
             << " imu_buf size: " << imu_buf.size() << endl;
@@ -269,7 +276,7 @@ void System::ProcessBackEnd()
             for (auto &imu_msg : measurement.first)
             {
                 double t = imu_msg->header;
-                double img_t = imu_msg->header + estimator.td;
+                double img_t = imu_msg->header + estimator.td; //td的作用见config文件的td
                 if (t <= img_t)
                 {
                     if (current_time < 0)
@@ -286,8 +293,9 @@ void System::ProcessBackEnd()
                     estimator.processIMU(dt, Vector3d(dx, dy, dz), Vector3d(rx, ry, rz));
                     // printf("1 BackEnd imu: dt:%f a: %f %f %f w: %f %f %f\n",dt, dx, dy, dz, rx, ry, rz);
                 }
-                else
+                else//当前measurement最后一帧的IMU数据有可能超过img的时间
                 {
+                    //TODO 这里可以替换成BSpline拟合（好像也没什么必要，时间间隔比较短）
                     double dt_1 = img_t - current_time;
                     double dt_2 = t - img_t;
                     current_time = img_t;

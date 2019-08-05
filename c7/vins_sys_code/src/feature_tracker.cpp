@@ -77,14 +77,26 @@ void FeatureTracker::addPoints()
         track_cnt.push_back(1);
     }
 }
-
+/**
+ * @brief   对图像使用光流法进行特征点跟踪
+ * @Description createCLAHE() 对图像进行自适应直方图均衡化
+ *              calcOpticalFlowPyrLK() LK金字塔光流法
+ *              setMask() 对跟踪点进行排序，设置mask
+ *              rejectWithF() 通过基本矩阵剔除outliers
+ *              goodFeaturesToTrack() 添加特征点(shi-tomasi角点)，确保每帧都有足够的特征点
+ *              addPoints()添加新的追踪点
+ *              undistortedPoints() 对角点图像坐标去畸变矫正，并计算每个角点的速度
+ * @param[in]   _img 输入图像
+ * @param[in]   _cur_time 当前时间（图像时间戳）
+ * @return      void
+*/
 void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
 {
     cv::Mat img;
     TicToc t_r;
     cur_time = _cur_time;
 
-    if (EQUALIZE)
+    if (EQUALIZE) //针对比较暗的场景，应用后可以提取到更多的特征点
     {
         cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(3.0, cv::Size(8, 8));
         TicToc t_c;
@@ -115,6 +127,7 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
         for (int i = 0; i < int(forw_pts.size()); i++)
             if (status[i] && !inBorder(forw_pts[i]))
                 status[i] = 0;
+        //这里跟踪到的特征点会变少，后面会进行补充
         reduceVector(prev_pts, status);
         reduceVector(cur_pts, status);
         reduceVector(forw_pts, status);
@@ -146,7 +159,7 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
                 cout << "mask type wrong " << endl;
             if (mask.size() != forw_img.size())
                 cout << "wrong size " << endl;
-            cv::goodFeaturesToTrack(forw_img, n_pts, MAX_CNT - forw_pts.size(), 0.01, MIN_DIST, mask);
+            cv::goodFeaturesToTrack(forw_img, n_pts, MAX_CNT - forw_pts.size(), 0.01, MIN_DIST, mask);//寻找更多的特征点
         }
         else
             n_pts.clear();
@@ -162,10 +175,16 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
     prev_un_pts = cur_un_pts;
     cur_img = forw_img;
     cur_pts = forw_pts;
-    undistortedPoints();
+    undistortedPoints();//这里不仅去畸变，还计算了特征点在归一化平面上的移动速度
     prev_time = cur_time;
 }
-
+/**
+ * @brief   通过F矩阵去除outliers
+ * @Description 将图像坐标转换为归一化坐标
+ *              cv::findFundamentalMat()计算F矩阵
+ *              reduceVector()去除outliers
+ * @return      void
+*/
 void FeatureTracker::rejectWithF()
 {
     if (forw_pts.size() >= 8)
@@ -264,7 +283,7 @@ void FeatureTracker::undistortedPoints()
     {
         Eigen::Vector2d a(cur_pts[i].x, cur_pts[i].y);
         Eigen::Vector3d b;
-        m_camera->liftProjective(a, b);
+        m_camera->liftProjective(a, b);//这里进行了去畸变
         cur_un_pts.push_back(cv::Point2f(b.x() / b.z(), b.y() / b.z()));
         cur_un_pts_map.insert(make_pair(ids[i], cv::Point2f(b.x() / b.z(), b.y() / b.z())));
         //printf("cur pts id %d %f %f", ids[i], cur_un_pts[i].x, cur_un_pts[i].y);

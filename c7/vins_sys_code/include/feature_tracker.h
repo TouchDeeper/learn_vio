@@ -50,8 +50,8 @@ class FeatureTracker
     cv::Mat fisheye_mask;
     cv::Mat prev_img, cur_img, forw_img;
     vector<cv::Point2f> n_pts;
-    vector<cv::Point2f> prev_pts, cur_pts, forw_pts;
-    vector<cv::Point2f> prev_un_pts, cur_un_pts;
+    vector<cv::Point2f> prev_pts, cur_pts, forw_pts; //cur_pts是原始角点
+    vector<cv::Point2f> prev_un_pts, cur_un_pts; //cur_un_pts是去畸变后的角点
     vector<cv::Point2f> pts_velocity;
     vector<int> ids;
     vector<int> track_cnt;
