@@ -8,7 +8,7 @@ using namespace pangolin;
 System::System(string sConfig_file_)
     :bStart_backend(true)
 {
-    string sConfig_file = sConfig_file_ + "euroc_config.yaml";
+    string sConfig_file = sConfig_file_ + "sim_config.yaml";
 
     cout << "1 System() sConfig_file: " << sConfig_file << endl;
     readParameters(sConfig_file);
@@ -25,7 +25,30 @@ System::System(string sConfig_file_)
     // thd_RunBackend.detach();
     cout << "2 System() end" << endl;
 }
+System::System(string sConfig_file_, string sConfig_type_)
+        :bStart_backend(true)
+{
+    string sConfig_file;
+    if(sConfig_type_ == "sim")
+        sConfig_file = sConfig_file_ + "sim_config.yaml";
+    if(sConfig_type_ == "euroc")
+        sConfig_file = sConfig_file_ + "euroc_config.yaml";
 
+    cout << "1 System() sConfig_file: " << sConfig_file << endl;
+    readParameters(sConfig_file);
+
+    trackerData[0].readIntrinsicParameter(sConfig_file);
+
+    estimator.setParameter();
+    ofs_pose.open("./pose_output.txt",fstream::app | fstream::out);
+    if(!ofs_pose.is_open())
+    {
+        cerr << "ofs_pose is not open" << endl;
+    }
+    // thread thd_RunBackend(&System::process,this);
+    // thd_RunBackend.detach();
+    cout << "2 System() end" << endl;
+}
 System::~System()
 {
     bStart_backend = false;
@@ -57,7 +80,7 @@ void System::PubImageData(double dStampSec, Mat &img)
 
     if (first_image_flag)
     {
-        cout << "2 PubImageData first_image_flag" << endl;
+        cout << "2 PubImageData first_image_flag return" << endl;
         first_image_flag = false;
         first_image_time = dStampSec;
         last_image_time = dStampSec;
@@ -90,7 +113,7 @@ void System::PubImageData(double dStampSec, Mat &img)
     }
 
     TicToc t_r;
-    // cout << "3 PubImageData t : " << dStampSec << endl;
+    cout << "3 PubImageData t : " << dStampSec << endl;
     trackerData[0].readImage(img, dStampSec);//这里进行了特征点跟踪，特征点速度计算
 
     for (unsigned int i = 0;; i++)
@@ -166,6 +189,139 @@ void System::PubImageData(double dStampSec, Mat &img)
 	}
     // cout << "5 PubImage" << endl;
     
+}
+/**
+ * pubish the image data
+ * @param dStampSec timestamp
+ * @param features the tracked features in the normalized plane of this image
+ */
+void System::PubImageData(double dStampSec, std::vector<cv::Point2f> &features)
+{
+    if (!init_feature)
+    {
+        cout << "1 PubImageData skip the first detected feature, which doesn't contain optical flow speed" << endl;
+        init_feature = 1;
+        return;
+    }
+
+    if (first_image_flag)
+    {
+        cout << "2 PubImageData first_image_flag" << endl;
+        first_image_flag = false;
+        first_image_time = dStampSec;
+        last_image_time = dStampSec;
+        return;
+    }
+    // detect unstable camera stream
+    if (dStampSec - last_image_time > 1.0 || dStampSec < last_image_time)
+    {
+        cerr << "3 PubImageData image discontinue! reset the feature tracker!" << endl;
+        first_image_flag = true;
+        last_image_time = 0;
+        pub_count = 1;
+        return;
+    }
+    last_image_time = dStampSec;
+    // frequency control
+    if (round(1.0 * pub_count / (dStampSec - first_image_time)) <= FREQ)
+    {
+        PUB_THIS_FRAME = true;
+        // reset the frequency control
+        if (abs(1.0 * pub_count / (dStampSec - first_image_time) - FREQ) < 0.01 * FREQ)
+        {
+            first_image_time = dStampSec;
+            pub_count = 0;
+        }
+    }
+    else
+    {
+        PUB_THIS_FRAME = false;
+    }
+
+    TicToc t_r;
+    cout << "3 PubImageData t : " << dStampSec << endl;
+    trackerData[0].readFeatures(features, dStampSec);//这里进行了特征点跟踪，特征点速度计算
+
+    for (unsigned int i = 0;; i++)
+    {
+        bool completed = false;
+        completed |= trackerData[0].updateID(i);
+
+        if (!completed)
+            break;
+    }
+    if (PUB_THIS_FRAME)
+    {
+        pub_count++;
+        shared_ptr<IMG_MSG> feature_points(new IMG_MSG());
+        feature_points->header = dStampSec;
+        vector<set<int>> hash_ids(NUM_OF_CAM);
+        for (int i = 0; i < NUM_OF_CAM; i++)
+        {
+            auto &un_pts = trackerData[i].cur_un_pts;
+            auto &cur_pts = trackerData[i].cur_pts;
+            // ids储存所追踪的光流id
+            auto &ids = trackerData[i].ids;
+            auto &pts_velocity = trackerData[i].pts_velocity;
+            for (unsigned int j = 0; j < ids.size(); j++)
+            {
+                if (trackerData[i].track_cnt[j] > 1) //判断该光流是否形成追踪
+                {
+                    int p_id = ids[j];
+                    hash_ids[i].insert(p_id);
+                    double x = un_pts[j].x;
+                    double y = un_pts[j].y;
+                    double z = 1;
+                    feature_points->points.push_back(Vector3d(x, y, z));
+                    feature_points->id_of_point.push_back(p_id * NUM_OF_CAM + i);
+                    feature_points->u_of_point.push_back(cur_pts[j].x);
+                    feature_points->v_of_point.push_back(cur_pts[j].y);
+                    feature_points->velocity_x_of_point.push_back(pts_velocity[j].x);
+                    feature_points->velocity_y_of_point.push_back(pts_velocity[j].y);
+                }
+            }
+            //}
+            // skip the first image; since no optical speed on frist image
+            if (!init_pub)
+            {
+                cout << "4 PubImage init_pub skip the first image!" << endl;
+                init_pub = 1;
+            }
+            else
+            {
+                m_buf.lock();
+                feature_buf.push(feature_points);
+                // cout << "5 PubImage t : " << fixed << feature_points->header
+                //     << " feature_buf size: " << feature_buf.size() << endl;
+                m_buf.unlock();
+                con.notify_one();
+            }
+        }
+    }
+
+    //构造包含特征点的模拟图像以显示
+    cv::Mat img(ROW, COL, CV_8UC1, 255);
+//    for (int k = 0; k < features.size(); ++k) {
+//        img.at<uchar>(features[k].y,features[k].x) = 0;
+//
+//    }
+
+    cv::Mat show_img;
+    cv::cvtColor(img, show_img, CV_GRAY2RGB);
+    if (SHOW_TRACK)
+    {
+        for (unsigned int j = 0; j < trackerData[0].cur_pts.size(); j++)
+        {
+            double len = min(1.0, 1.0 * trackerData[0].track_cnt[j] / WINDOW_SIZE);
+            cv::circle(show_img, trackerData[0].cur_pts[j], 2, cv::Scalar(255 * (1 - len), 0, 255 * len), 2);
+        }
+
+        cv::namedWindow("IMAGE", CV_WINDOW_AUTOSIZE);
+        cv::imshow("IMAGE", show_img);
+        cv::waitKey(1);
+    }
+    // cout << "5 PubImage" << endl;
+
 }
 
 vector<pair<vector<ImuConstPtr>, ImgConstPtr>> System::getMeasurements()
@@ -276,7 +432,8 @@ void System::ProcessBackEnd()
             for (auto &imu_msg : measurement.first)
             {
                 double t = imu_msg->header;
-                double img_t = imu_msg->header + estimator.td; //td的作用见config文件的td
+                //TODO 这里是不是应该是img_msg
+                double img_t = img_msg->header + estimator.td; //td的作用见config文件的td
                 if (t <= img_t)
                 {
                     if (current_time < 0)

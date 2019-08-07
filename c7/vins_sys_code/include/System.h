@@ -42,11 +42,16 @@ class System
 {
 public:
     System(std::string sConfig_files);
-
+    System(string sConfig_file_, string sConfig_type_);
     ~System();
 
     void PubImageData(double dStampSec, cv::Mat &img);
-
+    /**
+     * pubish the image data
+     * @param dStampSec timestamp
+     * @param features the tracked features of this image
+     */
+    void PubImageData(double dStampSec, std::vector<cv::Point2f> &features);
     void PubImuData(double dStampSec, const Eigen::Vector3d &vGyr, 
         const Eigen::Vector3d &vAcc);
 
@@ -96,7 +101,7 @@ private:
     Eigen::Vector3d gyr_0;
     bool init_feature = 0;
     bool init_imu = 1;
-    double last_imu_t = 0;
+    double last_imu_t = -1;//将last_imu_t初始化为－１
     std::ofstream ofs_pose;
     std::vector<Eigen::Vector3d> vPath_to_draw;
     bool bStart_backend;

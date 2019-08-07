@@ -71,8 +71,8 @@ void PubImageData()
 	// cv::namedWindow("SOURCE IMAGE", CV_WINDOW_AUTOSIZE);
 	while (std::getline(fsImage, sImage_line) && !sImage_line.empty())
 	{
-		std::istringstream ssImuData(sImage_line);
-		ssImuData >> dStampNSec >> sImgFileName;
+		std::istringstream ssImageData(sImage_line);
+		ssImageData >> dStampNSec >> sImgFileName;
 		// cout << "Image t : " << fixed << dStampNSec << " Name: " << sImgFileName << endl;
 		string imagePath = sData_path + "cam0/data/" + sImgFileName;
 
@@ -101,8 +101,9 @@ int main(int argc, char **argv)
 //	sData_path = argv[1];
 //	sConfig_path = argv[2];
 
-	pSystem.reset(new System(sConfig_path));
-	
+//	pSystem.reset(new System(sConfig_path));
+	pSystem.reset(new System(sConfig_path,"euroc"));
+
 	std::thread thd_BackEnd(&System::ProcessBackEnd, pSystem);
 		
 	// sleep(5);
