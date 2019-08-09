@@ -78,7 +78,7 @@ class Estimator
     //相机和IMU之间的外参
     Matrix3d ric[NUM_OF_CAM];
     Vector3d tic[NUM_OF_CAM];
-    //IMU坐标系下的平移，速度，旋转
+    //IMU坐标系下的平移，速度，旋转，每个都是11个vector3d
     Vector3d Ps[(WINDOW_SIZE + 1)];
     Vector3d Vs[(WINDOW_SIZE + 1)];
     Matrix3d Rs[(WINDOW_SIZE + 1)];

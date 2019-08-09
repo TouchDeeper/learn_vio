@@ -18,14 +18,15 @@ using namespace cv;
 using namespace Eigen;
 
 const int nDelayTimes = 2;
-string sData_path = "/media/wang/File/dataset/EuRoc/MH-05/mav0/";
+//string sData_path = "/media/wang/File/dataset/EuRoc/MH-05/mav0/";
 string sConfig_path = "../config/sim/";
 
 std::shared_ptr<System> pSystem;
 
 void PubImuData()
 {
-	string sImu_data_file = sConfig_path + "data/imu_pose_noise.txt";
+//	string sImu_data_file = sConfig_path + "data/imu_pose_noise.txt";//记得改config文件
+	string sImu_data_file = sConfig_path + "data/imu_pose.txt";
 	cout << "1 PubImuData start sImu_data_filea: " << sImu_data_file << endl;
 	ifstream fsImu;
 	fsImu.open(sImu_data_file.c_str());

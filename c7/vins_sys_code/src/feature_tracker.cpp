@@ -323,9 +323,7 @@ void FeatureTracker::readFeatures(const std::vector<cv::Point2f>  &features_norm
     prev_un_pts = cur_un_pts;
     cur_img = forw_img;
     cur_pts = forw_pts;
-    std::cout<<"undistorted point"<<std::endl;
     undistortedPoints();//这里不仅去畸变，还计算了特征点在归一化平面上的移动速度
-    std::cout<<"undistorted done"<<std::endl;
     prev_time = cur_time;
 }
 /**
@@ -437,14 +435,11 @@ void FeatureTracker::undistortedPoints()
         m_camera->liftProjective(a, b);//这里进行了去畸变
 //        std::cout<<"liftProjective done "<<std::endl;
         cur_un_pts.push_back(cv::Point2f(b.x() / b.z(), b.y() / b.z()));
-        //TODO ids[i]有问题
-//        std::cout<<"ids[i]:"<<ids[i]<<std::endl;
         cur_un_pts_map.insert(make_pair(ids[i], cv::Point2f(b.x() / b.z(), b.y() / b.z())));
 
         //printf("cur pts id %d %f %f", ids[i], cur_un_pts[i].x, cur_un_pts[i].y);
     }
-//    std::cout<<"cur_un_pts[3] :"<<std::endl<<cur_un_pts[3]<<std::endl;
-    std::cout<<"compute pts velocity"<<std::endl;
+
     // caculate points velocity
     if (!prev_un_pts_map.empty())
     {
@@ -473,7 +468,6 @@ void FeatureTracker::undistortedPoints()
     }
     else
     {
-        std::cout<<"set the points velocity to zero"<<std::endl;
         for (unsigned int i = 0; i < cur_pts.size(); i++)
         {
             pts_velocity.push_back(cv::Point2f(0, 0));

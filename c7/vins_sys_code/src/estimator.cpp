@@ -14,6 +14,12 @@ using namespace myslam;
 Estimator::Estimator() : f_manager{Rs}
 {
     // ROS_INFO("init begins");
+    //solve some core dumped bug
+    for (int i = 0; i < WINDOW_SIZE + 1; ++i)
+        pre_integrations[i] = nullptr;
+    for (auto &it : all_image_frame)
+        it.second.pre_integration = nullptr;
+
     clearState();
 }
 
@@ -114,6 +120,7 @@ void Estimator::processIMU(double dt, const Vector3d &linear_acceleration, const
         linear_acceleration_buf[frame_count].push_back(linear_acceleration);
         angular_velocity_buf[frame_count].push_back(angular_velocity);
 
+        //TODO 这里也可以使用预积分的结果吧
         //中值积分
         int j = frame_count;
         Vector3d un_acc_0 = Rs[j] * (acc_0 - Bas[j]) - g;
@@ -185,7 +192,7 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
     {
         //frame_count是滑动窗口中图像帧的数量，一开始初始化为0，滑动窗口总帧数WINDOW_SIZE=10
         //确保有足够的frame参与初始化
-        if (frame_count == WINDOW_SIZE)
+        if (frame_count == WINDOW_SIZE) //初始化的时候frame_count达到WINDOW_SIZE后就不降了，除非调用了clearState()直接清零
         {
             bool result = false;
             //有外参且当前帧时间戳大于初始化时间戳0.1秒，就进行初始化操作
@@ -444,6 +451,7 @@ bool Estimator::visualInitialAlign()
         //ROS_DEBUG("solve g failed!");
         return false;
     }
+    std::cout<<"after initial optimization, bgs:\n"<<Bgs[0]<<"\n"<< Bgs[1]<< "\n" << Bgs[2]<<std::endl;
 
     // change state
     // 得到所有图像帧的位姿Ps、Rs，并将其置为关键帧
@@ -1012,7 +1020,6 @@ void Estimator::problemSolve()
 
     for (int i = 0; i < WINDOW_SIZE + 1; i++)
     {
-        //TODO 推导一系列雅可比
         shared_ptr<backend::VertexPose> vertexCam(new backend::VertexPose());
         Eigen::VectorXd pose(7);
         pose << para_Pose[i][0], para_Pose[i][1], para_Pose[i][2], para_Pose[i][3], para_Pose[i][4], para_Pose[i][5], para_Pose[i][6];
@@ -1250,6 +1257,7 @@ void Estimator::slideWindow()
                 Bas[i].swap(Bas[i + 1]);
                 Bgs[i].swap(Bgs[i + 1]);
             }
+            //WINDOW_SIZE处的值还是保留
             Headers[WINDOW_SIZE] = Headers[WINDOW_SIZE - 1];
             Ps[WINDOW_SIZE] = Ps[WINDOW_SIZE - 1];
             Vs[WINDOW_SIZE] = Vs[WINDOW_SIZE - 1];

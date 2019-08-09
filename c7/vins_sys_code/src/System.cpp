@@ -16,7 +16,8 @@ System::System(string sConfig_file_)
     trackerData[0].readIntrinsicParameter(sConfig_file);
 
     estimator.setParameter();
-    ofs_pose.open("./pose_output.txt",fstream::app | fstream::out);
+//    ofs_pose.open("./pose_output.txt",fstream::app | fstream::out);
+    ofs_pose.open("./pose_output.txt",fstream::trunc | fstream::out);
     if(!ofs_pose.is_open())
     {
         cerr << "ofs_pose is not open" << endl;
@@ -40,7 +41,8 @@ System::System(string sConfig_file_, string sConfig_type_)
     trackerData[0].readIntrinsicParameter(sConfig_file);
 
     estimator.setParameter();
-    ofs_pose.open("./pose_output.txt",fstream::app | fstream::out);
+//    ofs_pose.open("./pose_output.txt",fstream::app | fstream::out);
+    ofs_pose.open("./pose_output.txt",fstream::trunc | fstream::out);
     if(!ofs_pose.is_open())
     {
         cerr << "ofs_pose is not open" << endl;
@@ -239,7 +241,7 @@ void System::PubImageData(double dStampSec, std::vector<cv::Point2f> &features)
     }
 
     TicToc t_r;
-    cout << "3 PubImageData t : " << dStampSec << endl;
+//    cout << "3 PubImageData t : " << dStampSec << endl;
     trackerData[0].readFeatures(features, dStampSec);//这里进行了特征点跟踪，特征点速度计算
 
     for (unsigned int i = 0;; i++)
@@ -432,7 +434,6 @@ void System::ProcessBackEnd()
             for (auto &imu_msg : measurement.first)
             {
                 double t = imu_msg->header;
-                //TODO 这里是不是应该是img_msg
                 double img_t = img_msg->header + estimator.td; //td的作用见config文件的td
                 if (t <= img_t)
                 {

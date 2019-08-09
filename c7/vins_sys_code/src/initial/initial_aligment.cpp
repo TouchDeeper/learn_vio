@@ -1,5 +1,13 @@
 #include "initial/initial_alignment.h"
-
+/**
+ * @brief   陀螺仪偏置校正
+ * @optional    根据视觉SFM的结果来校正陀螺仪Bias -> Paper V-B-1
+ *              主要是将相邻帧之间SFM求解出来的旋转矩阵与IMU预积分的旋转量对齐
+ *              注意得到了新的Bias后对应的预积分需要repropagate
+ * @param[in]   all_image_frame所有图像帧构成的map,图像帧保存了位姿、预积分量和关于角点的信息
+ * @param[out]  Bgs 陀螺仪偏置
+ * @return      void
+*/
 void solveGyroscopeBias(map<double, ImageFrame> &all_image_frame, Vector3d* Bgs)
 {
     Matrix3d A;

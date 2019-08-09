@@ -51,6 +51,11 @@ class IntegrationBase
             propagate(dt_buf[i], acc_buf[i], gyr_buf[i]);
     }
 
+    /**
+    * @brief   IMU预积分中采用中值积分递推Jacobian和Covariance
+    *          构造误差的线性化递推方程，得到Jacobian和Covariance递推公式-> Paper 式9、10、11
+    * @return  void
+    */
     void midPointIntegration(double _dt, 
                             const Eigen::Vector3d &_acc_0, const Eigen::Vector3d &_gyr_0,
                             const Eigen::Vector3d &_acc_1, const Eigen::Vector3d &_gyr_1,
@@ -126,7 +131,17 @@ class IntegrationBase
         }
 
     }
-
+    /**
+    * @brief   IMU预积分传播方程
+    * @Description  积分计算两个关键帧之间IMU测量的变化量：
+    *               旋转delta_q 速度delta_v 位移delta_p
+    *               加速度的bias linearized_ba 陀螺仪的Bias linearized_bg
+    *               同时维护更新预积分的Jacobian和Covariance,计算优化时必要的参数
+    * @param[in]   _dt 时间间隔
+    * @param[in]   _acc_1 线加速度
+    * @param[in]   _gyr_1 角速度
+    * @return  void
+    */
     void propagate(double _dt, const Eigen::Vector3d &_acc_1, const Eigen::Vector3d &_gyr_1)
     {
         dt = _dt;
@@ -169,10 +184,10 @@ class IntegrationBase
 
         Eigen::Matrix3d dv_dba = jacobian.block<3, 3>(O_V, O_BA);
         Eigen::Matrix3d dv_dbg = jacobian.block<3, 3>(O_V, O_BG);
-
+        //Bai是经过优化的，linearized_ba是优化前的，算出差值，后面用泰勒展开的方式求新的bias下的预积分
         Eigen::Vector3d dba = Bai - linearized_ba;
         Eigen::Vector3d dbg = Bgi - linearized_bg;
-
+        //用泰勒展开的方式求新的bias下的预积分
         Eigen::Quaterniond corrected_delta_q = delta_q * Utility::deltaQ(dq_dbg * dbg);
         Eigen::Vector3d corrected_delta_v = delta_v + dv_dba * dba + dv_dbg * dbg;
         Eigen::Vector3d corrected_delta_p = delta_p + dp_dba * dba + dp_dbg * dbg;
