@@ -6,12 +6,11 @@
 
 using namespace std;
 using namespace cv;
-
 double INIT_DEPTH;
 double MIN_PARALLAX;
 double ACC_N, ACC_W;
 double GYR_N, GYR_W;
-
+int RUN_COUNT = 0;
 vector<Eigen::Matrix3d> RIC;
 vector<Eigen::Vector3d> TIC;
 
@@ -31,7 +30,6 @@ double ROW, COL;
 double TD, TR;
 
 
-
 int FOCAL_LENGTH;
 string IMAGE_TOPIC;
 string IMU_TOPIC;
@@ -47,7 +45,6 @@ bool STEREO_TRACK;
 int EQUALIZE;
 int FISHEYE;
 bool PUB_THIS_FRAME;
-
 
 void readParameters(string config_file)
 {
@@ -85,6 +82,15 @@ void readParameters(string config_file)
     GYR_N = fsSettings["gyr_n"];
     GYR_W = fsSettings["gyr_w"];
     G.z() = fsSettings["g_norm"];
+
+    //随着运行次数的增加，不断提高噪声
+    ACC_N *= pow(2,RUN_COUNT);
+    ACC_W *= pow(2,RUN_COUNT);
+    GYR_N *= pow(2,RUN_COUNT);
+    GYR_W *= pow(2,RUN_COUNT);
+
+
+
     ROW = fsSettings["image_height"];
     COL = fsSettings["image_width"];
     // ROS_INFO("ROW: %f COL: %f ", ROW, COL);

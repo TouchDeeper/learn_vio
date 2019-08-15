@@ -1,5 +1,5 @@
 #include "System.h"
-
+#include <iomanip>
 #include <pangolin/pangolin.h>
 
 using namespace std;
@@ -25,6 +25,7 @@ System::System(string sConfig_file_)
     // thread thd_RunBackend(&System::process,this);
     // thd_RunBackend.detach();
     cout << "2 System() end" << endl;
+
 }
 System::System(string sConfig_file_, string sConfig_type_)
         :bStart_backend(true)
@@ -41,8 +42,9 @@ System::System(string sConfig_file_, string sConfig_type_)
     trackerData[0].readIntrinsicParameter(sConfig_file);
 
     estimator.setParameter();
+    string sPose_file = "./pose_output_" + sConfig_type_ + to_string(RUN_COUNT) + ".txt";
 //    ofs_pose.open("./pose_output.txt",fstream::app | fstream::out);
-    ofs_pose.open("./pose_output.txt",fstream::trunc | fstream::out);
+    ofs_pose.open(sPose_file,fstream::trunc | fstream::out);
     if(!ofs_pose.is_open())
     {
         cerr << "ofs_pose is not open" << endl;
@@ -53,6 +55,7 @@ System::System(string sConfig_file_, string sConfig_type_)
 }
 System::~System()
 {
+    std::cout<<"deconstructor runing"<<std::endl;
     bStart_backend = false;
     
     pangolin::QuitAll();
@@ -203,6 +206,7 @@ void System::PubImageData(double dStampSec, std::vector<cv::Point2f> &features)
     {
         cout << "1 PubImageData skip the first detected feature, which doesn't contain optical flow speed" << endl;
         init_feature = 1;
+        std::cout<<"need to return"<<std::endl;
         return;
     }
 
@@ -410,14 +414,15 @@ void System::PubImuData(double dStampSec, const Eigen::Vector3d &vGyr,
 void System::ProcessBackEnd()
 {
     cout << "1 ProcessBackEnd start" << endl;
-    while (bStart_backend)
+    while (bStart_backend )
     {
         // cout << "1 process()" << endl;
         vector<pair<vector<ImuConstPtr>, ImgConstPtr>> measurements;
         
         unique_lock<mutex> lk(m_buf);
+        std::cout<<"get measurement ..."<<std::endl;
         con.wait(lk, [&] {
-            return (measurements = getMeasurements()).size() != 0;
+            return ((measurements = getMeasurements()).size() != 0 || bStart_backend == false);
         });
         if( measurements.size() > 1){
         cout << "getMeasurements size: " << measurements.size()
@@ -507,7 +512,17 @@ void System::ProcessBackEnd()
                 vPath_to_draw.push_back(p_wi);
                 double dStamp = estimator.Headers[WINDOW_SIZE];
                 cout << "1 BackEnd processImage dt: " << fixed << t_processImage.toc() << " stamp: " <<  dStamp << " p_wi: " << p_wi.transpose() << endl;
-                ofs_pose << fixed << dStamp << " " << p_wi.transpose() << " " << q_wi.coeffs().transpose() << endl;
+                //save as tum format
+                ofs_pose.precision(9);
+                ofs_pose << dStamp << " ";
+                ofs_pose.precision(5);
+                ofs_pose << p_wi[0] <<" "
+                         << p_wi[1] <<" "
+                         << p_wi[2] <<" "
+                         << q_wi.x()<<" "
+                         << q_wi.y()<<" "
+                         << q_wi.z()<<" "
+                         << q_wi.w()<< endl;
             }
         }
         m_estimator.unlock();
@@ -517,7 +532,10 @@ void System::ProcessBackEnd()
 void System::Draw() 
 {   
     // create pangolin window and plot the trajectory
+    std::cout<<"create trajectory window"<<std::endl;
+    pangolin::DestroyWindow("Trajectory Viewer");
     pangolin::CreateWindowAndBind("Trajectory Viewer", 1024, 768);
+    std::cout<<"open trajectory window"<<std::endl;
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -531,7 +549,9 @@ void System::Draw()
             .SetBounds(0.0, 1.0, pangolin::Attach::Pix(175), 1.0, -1024.0f / 768.0f)
             .SetHandler(new pangolin::Handler3D(s_cam));
 
-    while (pangolin::ShouldQuit() == false) {
+//    while (pangolin::ShouldQuit() == false) {
+
+    while (!pangolin_quit) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         d_cam.Activate(s_cam);
@@ -567,4 +587,5 @@ void System::Draw()
         pangolin::FinishFrame();
         usleep(5000);   // sleep 5 ms
     }
+
 }

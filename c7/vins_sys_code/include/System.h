@@ -58,9 +58,15 @@ public:
     // thread: visual-inertial odometry
     void ProcessBackEnd();
     void Draw();
+    void set_stop_flag(){
+        bStart_backend = false;
+        pangolin_quit = true;
+        con.notify_one();
+
+    }
     
 private:
-
+    bool pangolin_quit = false;
     //feature tracker
     std::vector<uchar> r_status;
     std::vector<float> r_err;

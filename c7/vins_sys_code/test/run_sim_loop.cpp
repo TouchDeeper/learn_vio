@@ -17,7 +17,7 @@ using namespace std;
 using namespace cv;
 using namespace Eigen;
 
-const int nDelayTimes = 1;
+const int nDelayTimes = 2;
 //string sData_path = "/media/wang/File/dataset/EuRoc/MH-05/mav0/";
 string sConfig_path = "../config/sim/";
 
@@ -100,6 +100,7 @@ void PubImageData()
 
 }
 
+
 int main(int argc, char **argv)
 {
 //	if(argc != 3)
@@ -110,25 +111,28 @@ int main(int argc, char **argv)
 //	}
 //	sData_path = argv[1];
 //	sConfig_path = argv[2];
+    while(RUN_COUNT < 5) {
 
-	pSystem.reset(new System(sConfig_path,"sim"));
-	
-	std::thread thd_BackEnd(&System::ProcessBackEnd, pSystem);
-		
-	// sleep(5);
-	std::thread thd_PubImuData(PubImuData);
+        pSystem.reset(new System(sConfig_path,"sim"));
 
-	std::thread thd_PubImageData(PubImageData);
-	
-	std::thread thd_Draw(&System::Draw, pSystem);
-	
-	thd_PubImuData.join();
-	thd_PubImageData.join();
-    pSystem.reset();
-    pSystem.reset();
-	thd_BackEnd.join();
-	thd_Draw.join();
+        std::thread thd_BackEnd(&System::ProcessBackEnd, pSystem);
 
-	cout << "main end... see you ..." << endl;
+        // sleep(5);
+        std::thread thd_PubImuData(PubImuData);
+
+        std::thread thd_PubImageData(PubImageData);
+
+        std::thread thd_Draw(&System::Draw, pSystem);
+
+        thd_PubImuData.join();
+        thd_PubImageData.join();
+
+        thd_BackEnd.join();
+        thd_Draw.join();
+
+        cout << "main end... see you ..." << endl;
+        RUN_COUNT++;
+    }
+
 	return 0;
 }

@@ -28,9 +28,11 @@ void EdgeImu::ComputeResidual() {
     Vec3 Vj = param_3.head<3>();
     Vec3 Baj = param_3.segment(3, 3);
     Vec3 Bgj = param_3.tail<3>();
+//    std::cout<<"Baj = "<<Baj<<"     Bai = "<<Bai<<std::endl;
 
     residual_ = pre_integration_->evaluate(Pi, Qi, Vi, Bai, Bgi,
                               Pj, Qj, Vj, Baj, Bgj);
+
 //    Mat1515 sqrt_info  = Eigen::LLT< Mat1515 >(pre_integration_->covariance.inverse()).matrixL().transpose();
     SetInformation(pre_integration_->covariance.inverse());
 }

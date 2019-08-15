@@ -83,7 +83,10 @@ add_executable(run_sim test/run_sim.cpp)
 target_link_libraries(run_sim
 		MyVio
 		-lpthread)
-
+add_executable(run_sim_loop test/run_sim_loop.cpp)
+target_link_libraries(run_sim_loop
+		MyVio
+		-lpthread)
 add_executable(testCurveFitting test/CurveFitting.cpp)
 target_link_libraries(testCurveFitting MyVio)
 

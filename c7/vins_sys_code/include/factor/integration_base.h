@@ -2,7 +2,7 @@
 
 #include "../utility/utility.h"
 #include "../parameters.h"
-
+#include <iomanip>
 #include <ceres/ceres.h>
 using namespace Eigen;
 
@@ -19,12 +19,12 @@ class IntegrationBase
 
     {
         noise = Eigen::Matrix<double, 18, 18>::Zero();
-        noise.block<3, 3>(0, 0) =  (ACC_N * ACC_N) * Eigen::Matrix3d::Identity();
-        noise.block<3, 3>(3, 3) =  (GYR_N * GYR_N) * Eigen::Matrix3d::Identity();
-        noise.block<3, 3>(6, 6) =  (ACC_N * ACC_N) * Eigen::Matrix3d::Identity();
-        noise.block<3, 3>(9, 9) =  (GYR_N * GYR_N) * Eigen::Matrix3d::Identity();
-        noise.block<3, 3>(12, 12) =  (ACC_W * ACC_W) * Eigen::Matrix3d::Identity();
-        noise.block<3, 3>(15, 15) =  (GYR_W * GYR_W) * Eigen::Matrix3d::Identity();
+        noise.block<3, 3>(0, 0) =  (ACC_N * ACC_N) * Eigen::Matrix3d::Identity();//k时刻的加速度计的噪声的协方差
+        noise.block<3, 3>(3, 3) =  (GYR_N * GYR_N) * Eigen::Matrix3d::Identity();//k时刻的陀螺仪的噪声的协方差
+        noise.block<3, 3>(6, 6) =  (ACC_N * ACC_N) * Eigen::Matrix3d::Identity();//k+1时刻的加速度计的噪声的协方差
+        noise.block<3, 3>(9, 9) =  (GYR_N * GYR_N) * Eigen::Matrix3d::Identity();//k＋１时刻的陀螺仪的噪声的协方差
+        noise.block<3, 3>(12, 12) =  (ACC_W * ACC_W) * Eigen::Matrix3d::Identity();//k时刻的加速度计的bias的协方差
+        noise.block<3, 3>(15, 15) =  (GYR_W * GYR_W) * Eigen::Matrix3d::Identity();//k时刻的陀螺仪的bias的协方差
     }
 
     void push_back(double dt, const Eigen::Vector3d &acc, const Eigen::Vector3d &gyr)
@@ -128,6 +128,7 @@ class IntegrationBase
             //step_V = V;
             jacobian = F * jacobian;
             covariance = F * covariance * F.transpose() + V * noise * V.transpose();
+            std::cout<<"-----------covariance------------"<<"\n"<<std::fixed<<std::setprecision(10)<<covariance.maxCoeff()<<std::endl;
         }
 
     }
@@ -197,6 +198,8 @@ class IntegrationBase
         residuals.block<3, 1>(O_V, 0) = Qi.inverse() * (G * sum_dt + Vj - Vi) - corrected_delta_v;
         residuals.block<3, 1>(O_BA, 0) = Baj - Bai;
         residuals.block<3, 1>(O_BG, 0) = Bgj - Bgi;
+//        std::cout<<"Baj = "<<Baj<<"     Bai = "<<Bai<<std::endl;
+//        std::cout<<"-------------residual----------"<<"\n"<<residuals<<std::endl;
         return residuals;
     }
 

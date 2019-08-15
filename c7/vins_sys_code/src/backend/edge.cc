@@ -32,13 +32,16 @@ Edge::~Edge() {}
 
 double Edge::Chi2() const{
     // TODO::  we should not Multiply information here, because we have computed Jacobian = sqrt_info * Jacobian
+//    std::cout<<"-------------residual----------"<<"\n"<<residual_<<std::endl;
     return residual_.transpose() * information_ * residual_;
+
 //    return residual_.transpose() * residual_;   // 当计算 residual 的时候已经乘以了 sqrt_info, 这里不要再乘
 }
 
 double Edge::RobustChi2() const{
 
     double e2 = this->Chi2();
+//    std::cout<<"-------   e2 = "<<e2<<std::endl;
     if(lossfunction_)
     {
         Eigen::Vector3d rho;

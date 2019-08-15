@@ -8,6 +8,8 @@
 // #include <opencv2/core/eigen.hpp>
 #include <fstream>
 
+extern int RUN_COUNT;
+
 //feature tracker
 // extern int ROW;
 // extern int COL;
