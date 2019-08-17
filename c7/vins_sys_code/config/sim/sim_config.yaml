@@ -63,6 +63,25 @@ acc_w: 0.0001         # accelerometer bias random work noise standard deviation.
 gyr_w: 1.0e-5       # gyroscope bias random work noise standard deviation.     #4.0e-5
 g_norm: 9.81007     # gravity magnitude
 
+
+## /16
+##记得改回imu_pose_noise.txt
+##imu parameters       The more accurate parameters you provide, the better performance
+#acc_n: 0.0011875          # accelerometer measurement noise standard deviation. #0.2   0.04
+#gyr_n: 0.0009375         # gyroscope measurement noise standard deviation.     #0.05  0.004
+#acc_w: 6.25e-6         # accelerometer bias random work noise standard deviation.  #0.02
+#gyr_w: 6.25e-7       # gyroscope bias random work noise standard deviation.     #4.0e-5
+#g_norm: 9.81007     # gravity magnitude
+
+## /32
+##记得改回imu_pose_noise.txt
+##imu parameters       The more accurate parameters you provide, the better performance
+#acc_n: 0.00059375          # accelerometer measurement noise standard deviation. #0.2   0.04
+#gyr_n: 0.00046875         # gyroscope measurement noise standard deviation.     #0.05  0.004
+#acc_w: 3.125e-6         # accelerometer bias random work noise standard deviation.  #0.02
+#gyr_w: 3.125e-7       # gyroscope bias random work noise standard deviation.     #4.0e-5
+#g_norm: 9.81007     # gravity magnitude
+
 ##imu parameters       The more accurate parameters you provide, the better performance
 #acc_n: 0          # accelerometer measurement noise standard deviation. #0.2   0.04
 #gyr_n: 0         # gyroscope measurement noise standard deviation.     #0.05  0.004

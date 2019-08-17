@@ -124,8 +124,6 @@ int main(int argc, char **argv)
 	
 	thd_PubImuData.join();
 	thd_PubImageData.join();
-    pSystem.reset();
-    pSystem.reset();
 	thd_BackEnd.join();
 	thd_Draw.join();
 

@@ -11,6 +11,9 @@ double MIN_PARALLAX;
 double ACC_N, ACC_W;
 double GYR_N, GYR_W;
 int RUN_COUNT = 0;
+int RUN_NUM;
+vector <string> LOOP_PARAMETER;
+string NOW_LOOP = "";
 vector<Eigen::Matrix3d> RIC;
 vector<Eigen::Vector3d> TIC;
 
@@ -68,7 +71,7 @@ void readParameters(string config_file)
     SOLVER_TIME = fsSettings["max_solver_time"];
     NUM_ITERATIONS = fsSettings["max_num_iterations"];
     MIN_PARALLAX = fsSettings["keyframe_parallax"];
-    MIN_PARALLAX = MIN_PARALLAX / FOCAL_LENGTH;
+    MIN_PARALLAX = MIN_PARALLAX / FOCAL_LENGTH;//转换到归一化平面的视差阈值
 
     string OUTPUT_PATH;
     fsSettings["output_path"] >> OUTPUT_PATH;
@@ -83,11 +86,39 @@ void readParameters(string config_file)
     GYR_W = fsSettings["gyr_w"];
     G.z() = fsSettings["g_norm"];
 
+    if(!LOOP_PARAMETER.empty())
+    {
+        if(NOW_LOOP == "ACC_N")
+        {
+            ACC_N = ACC_N * pow(0.5, (RUN_NUM-1)/2);//置为循环开始初始值
+            ACC_N = ACC_N * pow(2, RUN_COUNT);//每循环一次乘２
+        }
+        if(NOW_LOOP == "ACC_W")
+        {
+            ACC_W = ACC_W * pow(0.5, (RUN_NUM-1)/2);//置为循环开始初始值
+            ACC_W = ACC_W * pow(2, RUN_COUNT);//每循环一次乘２
+        }
+        if(NOW_LOOP == "GYR_N")
+        {
+            GYR_N = GYR_N * pow(0.5, (RUN_NUM-1)/2);//置为循环开始初始值
+            GYR_N = GYR_N * pow(2, RUN_COUNT);//每循环一次乘２
+        }
+        if(NOW_LOOP == "GYR_W")
+        {
+            GYR_W = GYR_W * pow(0.5, (RUN_NUM-1)/2);//置为循环开始初始值
+            GYR_W = GYR_W * pow(2, RUN_COUNT);//每循环一次乘２
+        }
+    }
+//    else
+//    {
+//        ACC_W = ACC_W * pow(0.5, (13-1)/2);//置为循环开始初始值
+//        ACC_W = ACC_W * pow(2, 1);//每循环一次乘２
+//    }
     //随着运行次数的增加，不断提高噪声
-    ACC_N *= pow(2,RUN_COUNT);
-    ACC_W *= pow(2,RUN_COUNT);
-    GYR_N *= pow(2,RUN_COUNT);
-    GYR_W *= pow(2,RUN_COUNT);
+//    ACC_N *= pow(2,RUN_COUNT);
+//    ACC_W *= pow(2,RUN_COUNT);
+//    GYR_N *= pow(2,RUN_COUNT);
+//    GYR_W *= pow(2,RUN_COUNT);
 
 
 
@@ -99,8 +130,8 @@ void readParameters(string config_file)
     if (ESTIMATE_EXTRINSIC == 2)
     {
         // ROS_WARN("have no prior about extrinsic param, calibrate extrinsic param");
-        RIC.push_back(Eigen::Matrix3d::Identity());
-        TIC.push_back(Eigen::Vector3d::Zero());
+        RIC.emplace_back(Eigen::Matrix3d::Identity());
+        TIC.emplace_back(Eigen::Vector3d::Zero());
         EX_CALIB_RESULT_PATH = OUTPUT_PATH + "/extrinsic_parameter.csv";
     }
     else
@@ -181,6 +212,7 @@ void readParameters(string config_file)
     cout << "1 readParameters:  "
         <<  "\n  INIT_DEPTH: " << INIT_DEPTH
         <<  "\n  MIN_PARALLAX: " << MIN_PARALLAX
+        <<  "\n  LOOP_NOW:"<<NOW_LOOP<<"  RUN COUNT = "<<RUN_COUNT
         <<  "\n  ACC_N: " <<ACC_N
         <<  "\n  ACC_W: " <<ACC_W
         <<  "\n  GYR_N: " <<GYR_N

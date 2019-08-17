@@ -374,7 +374,7 @@ void FeatureManager::removeFront(int frame_count)
         }
     }
 }
-
+//计算某个特征点it_per_id在次新帧和次次新帧的视差,归一化平面的视差
 double FeatureManager::compensatedParallax2(const FeaturePerId &it_per_id, int frame_count)
 {
     //check the second last frame is keyframe or not

@@ -1032,7 +1032,7 @@ void Estimator::problemSolve()
         vb << para_SpeedBias[i][0], para_SpeedBias[i][1], para_SpeedBias[i][2],
             para_SpeedBias[i][3], para_SpeedBias[i][4], para_SpeedBias[i][5],
             para_SpeedBias[i][6], para_SpeedBias[i][7], para_SpeedBias[i][8];
-        std::cout<<"Bai ="<<"\n"<<para_SpeedBias[i][3]<<","<<para_SpeedBias[i][4]<<","<<para_SpeedBias[i][5]<<std::endl;
+//        std::cout<<"Bai ="<<"\n"<<para_SpeedBias[i][3]<<","<<para_SpeedBias[i][4]<<","<<para_SpeedBias[i][5]<<std::endl;
         vertexVB->SetParameters(vb);
         vertexVB_vec.push_back(vertexVB);
         problem.AddVertex(vertexVB);
@@ -1150,7 +1150,7 @@ void Estimator::problemSolve()
         {
             para_SpeedBias[i][j] = vb[j];
         }
-        std::cout<<"after optimization, Bai = \n"<<para_SpeedBias[i][3]<<","<<para_SpeedBias[i][4]<<","<<para_SpeedBias[i][5]<<std::endl;
+//        std::cout<<"after optimization, Bai = \n"<<para_SpeedBias[i][3]<<","<<para_SpeedBias[i][4]<<","<<para_SpeedBias[i][5]<<std::endl;
     }
 
     // 遍历每一个特征

@@ -111,28 +111,33 @@ int main(int argc, char **argv)
 //	}
 //	sData_path = argv[1];
 //	sConfig_path = argv[2];
-    while(RUN_COUNT < 5) {
+    RUN_NUM = 27;          // loop tims, must be odd
+    LOOP_PARAMETER.emplace_back("ACC_N");
+    LOOP_PARAMETER.emplace_back("GYR_N");
+    LOOP_PARAMETER.emplace_back("ACC_W");
+    LOOP_PARAMETER.emplace_back("GYR_W");
+    for (int i = 0; i < LOOP_PARAMETER.size(); ++i) {
+        NOW_LOOP = LOOP_PARAMETER[i];
+        for ( RUN_COUNT = 0; RUN_COUNT < RUN_NUM; ++RUN_COUNT) {
+            pSystem.reset(new System(sConfig_path,"sim"));
 
-        pSystem.reset(new System(sConfig_path,"sim"));
+            std::thread thd_BackEnd(&System::ProcessBackEnd, pSystem);
 
-        std::thread thd_BackEnd(&System::ProcessBackEnd, pSystem);
+            // sleep(5);
+            std::thread thd_PubImuData(PubImuData);
 
-        // sleep(5);
-        std::thread thd_PubImuData(PubImuData);
+            std::thread thd_PubImageData(PubImageData);
 
-        std::thread thd_PubImageData(PubImageData);
+//            std::thread thd_Draw(&System::Draw, pSystem);
 
-        std::thread thd_Draw(&System::Draw, pSystem);
+            thd_PubImuData.join();
+            thd_PubImageData.join();
 
-        thd_PubImuData.join();
-        thd_PubImageData.join();
+            thd_BackEnd.join();
+//            thd_Draw.join();
 
-        thd_BackEnd.join();
-        thd_Draw.join();
-
-        cout << "main end... see you ..." << endl;
-        RUN_COUNT++;
+            cout << "main end... see you ..." << endl;
+        }
     }
-
 	return 0;
 }

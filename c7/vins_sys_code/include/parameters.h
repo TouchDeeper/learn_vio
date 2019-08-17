@@ -9,7 +9,9 @@
 #include <fstream>
 
 extern int RUN_COUNT;
-
+extern int RUN_NUM;
+extern std::vector <std::string> LOOP_PARAMETER;
+extern std::string NOW_LOOP;
 //feature tracker
 // extern int ROW;
 // extern int COL;
