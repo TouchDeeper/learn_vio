@@ -12,6 +12,9 @@ double ACC_N, ACC_W;
 double GYR_N, GYR_W;
 int RUN_COUNT = 0;
 int RUN_NUM;
+int VERBOSE;//是否详细输出
+int STOP_REASON;
+int HDL_CHOOSE;
 vector <string> LOOP_PARAMETER;
 string NOW_LOOP = "";
 vector<Eigen::Matrix3d> RIC;
@@ -86,6 +89,9 @@ void readParameters(string config_file)
     GYR_W = fsSettings["gyr_w"];
     G.z() = fsSettings["g_norm"];
 
+    VERBOSE = fsSettings["verbose"];
+    STOP_REASON = fsSettings["stop_reason"];
+    HDL_CHOOSE = fsSettings["hdl_choose"];
     if(!LOOP_PARAMETER.empty())
     {
         if(NOW_LOOP == "ACC_N")

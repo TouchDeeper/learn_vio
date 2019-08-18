@@ -189,8 +189,19 @@ bool Problem::Solve(int iterations) {
         std::cout << "iter: " << iter << " , chi= " << currentChi_ << " , Lambda= " << currentLambda_ << std::endl;
         bool oneStepSuccess = false;
         int false_cnt = 0;
-        while (!oneStepSuccess && false_cnt < 10)  // 不断尝试 Lambda, 直到成功迭代一步
+        while (!oneStepSuccess)  // 不断尝试 Lambda, 直到成功迭代一步
         {
+
+            // TODO:: 退出条件还是有问题, 好多次误差都没变化了，还在迭代计算，应该搞一个误差不变了就中止
+            if ( false_cnt > 10)
+            {
+                if(VERBOSE)
+                    if(STOP_REASON)
+                        std::cout << "stop reason: false_cnt > 10" << std::endl;
+                stop = true;
+                break;
+            }
+
             // setLambda
 //            AddLambdatoHessianLM();
             // 第四步，解线性方程
@@ -200,12 +211,7 @@ bool Problem::Solve(int iterations) {
 
             // 优化退出条件1： delta_x_ 很小则退出
 //            if (delta_x_.squaredNorm() <= 1e-6 || false_cnt > 10)
-            // TODO:: 退出条件还是有问题, 好多次误差都没变化了，还在迭代计算，应该搞一个误差不变了就中止
-//            if ( false_cnt > 10)
-//            {
-//                stop = true;
-//                break;
-//            }
+
 
             // 更新状态量
             UpdateStates();
@@ -239,7 +245,9 @@ bool Problem::Solve(int iterations) {
 //        if (sqrt(currentChi_) < 1e-15)
         if(last_chi_ - currentChi_ < 1e-5)
         {
-//            std::cout << "sqrt(currentChi_) <= stopThresholdLM_" << std::endl;
+            if(VERBOSE)
+                if(STOP_REASON)
+                    std::cout << "stop reason: last_chi_ - currentChi_ < 1e-5" << std::endl;
             stop = true;
         }
         last_chi_ = currentChi_;
@@ -412,8 +420,6 @@ void Problem::SolveLinearSystem() {
             ComputeDoglegStep();
         }
 
-
-
     } else {
 
 //        TicToc t_Hmminv;
@@ -468,8 +474,12 @@ void Problem::ComputeDoglegStep(){
     hgn = H.ldlt().solve(b_);
 
     //compute gradient decent step
+    scale_ = 0; //使用之前先置０
     if(hgn.norm() <= current_region_raidus_ )
     {
+        if(VERBOSE)
+            if(HDL_CHOOSE)
+                std::cout<<"hdl choose: hgn.norm() <= current_region_raidus_, ||hgn||="<<hgn.norm()<<",region_radius="<<current_region_raidus_<<std::endl;
         delta_x_ = hgn;
         scale_ = currentChi_;
     }
@@ -479,11 +489,17 @@ void Problem::ComputeDoglegStep(){
         VecX a = alpha * hsd;
         if(a.norm() >= current_region_raidus_)
         {
+            if(VERBOSE)
+                if(HDL_CHOOSE)
+                    std::cout<<"hdl choose: a.norm() >= current_region_raidus_ "<<std::endl;
             //TODO check the hsd.norm
             delta_x_ = (current_region_raidus_ / hsd.norm()) * hsd;
             scale_ = current_region_raidus_ * (2 * a.norm() - current_region_raidus_) / (2 * alpha);
         }
         else{
+            if(VERBOSE)
+                if(HDL_CHOOSE)
+                    std::cout<<"hdl choose: hdl = alpha * hsd + beta *(hgn - alpha * hsd) "<<std::endl;
             VecX b = hgn;
             double c = a.transpose() * (b - a);
             double beta;
@@ -615,21 +631,42 @@ bool Problem::IsGoodStep() {
 
     double rho = (currentChi_ - tempChi) / scale_;
 
-//    if(solverType_ == SolverType::LM)
-    if (rho > 0 && isfinite(tempChi))   // last step was good, 误差在下降
+    if(solverType_ == SolverType::LM)
     {
-        double alpha = 1. - pow((2 * rho - 1), 3);
-        alpha = std::min(alpha, 2. / 3.);
-        double scaleFactor = (std::max)(1. / 3., alpha);
-        currentLambda_ *= scaleFactor;
-        ni_ = 2;
-        currentChi_ = tempChi;
-        return true;
-    } else {
-        currentLambda_ *= ni_;
-        ni_ *= 2;
-        return false;
+        if (rho > 0 && isfinite(tempChi))   // last step was good, 误差在下降
+        {
+            double alpha = 1. - pow((2 * rho - 1), 3);
+            alpha = std::min(alpha, 2. / 3.);
+            double scaleFactor = (std::max)(1. / 3., alpha);
+            currentLambda_ *= scaleFactor;
+            ni_ = 2;
+            currentChi_ = tempChi;
+            return true;
+        } else {
+            currentLambda_ *= ni_;
+            ni_ *= 2;
+            return false;
+        }
+    } else{
+        if(rho < 0.25)
+        {
+            //TODO 加快区间缩小速度
+            current_region_raidus_ /= 2;
+            return false;
+        }
+
+        else
+        {
+            if(rho > 0.75)
+                current_region_raidus_ = max(current_region_raidus_, 3 * delta_x_.norm());
+            currentChi_ = tempChi;
+            return true;
+        }
+
+
+
     }
+
 }
 
 /** @brief conjugate gradient with perconditioning

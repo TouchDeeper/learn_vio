@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <map>
 #include <memory>
+#include <parameters.h>
 
 #include "eigen_types.h"
 #include "edge.h"

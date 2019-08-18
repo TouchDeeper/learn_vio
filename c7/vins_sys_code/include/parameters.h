@@ -12,6 +12,9 @@ extern int RUN_COUNT;
 extern int RUN_NUM;
 extern std::vector <std::string> LOOP_PARAMETER;
 extern std::string NOW_LOOP;
+extern int VERBOSE;
+extern int STOP_REASON;//是否输出每次迭代的停止原因；
+extern int HDL_CHOOSE; //是否输出hdl选择过程
 //feature tracker
 // extern int ROW;
 // extern int COL;

@@ -1,7 +1,7 @@
 #include <iostream>
 #include <random>
 #include "backend/problem.h"
-
+#include "parameters.h"
 using namespace myslam::backend;
 using namespace std;
 
@@ -49,6 +49,7 @@ public:
 
 int main()
 {
+    readParameters("../config/sim/sim_config.yaml");
     double a=1.0, b=2.0, c=1.0;         // 真实参数值
     int N = 100;                          // 数据点
     double w_sigma= 1.;                 // 噪声Sigma值
@@ -86,7 +87,7 @@ int main()
 
     std::cout<<"\nTest CurveFitting start..."<<std::endl;
     /// 使用 LM 求解
-    problem.SetSolverType(Problem::SolverType::LM);
+    problem.SetSolverType(Problem::SolverType::DOG_LEG);
     problem.Solve(30);
 
     std::cout << "-------After optimization, we got these parameters :" << std::endl;
