@@ -180,7 +180,7 @@ bool Problem::Solve(int iterations) {
     // 遍历edge, 构建 H 矩阵
     MakeHessian();
     // LM 初始化
-    ComputeLambdaInitLM();
+    ComputeLambdaInit();
     // LM 算法迭代求解
     bool stop = false;
     int iter = 0;
@@ -210,7 +210,7 @@ bool Problem::Solve(int iterations) {
             // 更新状态量
             UpdateStates();
             // 判断当前步是否可行以及 LM 的 lambda 怎么更新, chi2 也计算一下
-            oneStepSuccess = IsGoodStepInLM();
+            oneStepSuccess = IsGoodStep();
             // 后续处理，
             if (oneStepSuccess) {
 //                std::cout << " get one step success\n";
@@ -239,7 +239,7 @@ bool Problem::Solve(int iterations) {
 //        if (sqrt(currentChi_) < 1e-15)
         if(last_chi_ - currentChi_ < 1e-5)
         {
-            std::cout << "sqrt(currentChi_) <= stopThresholdLM_" << std::endl;
+//            std::cout << "sqrt(currentChi_) <= stopThresholdLM_" << std::endl;
             stop = true;
         }
         last_chi_ = currentChi_;
@@ -335,6 +335,7 @@ void Problem::MakeHessian() {
             edge.second->RobustInfo(drho,robustInfo);
 
             MatXX JtW = jacobian_i.transpose() * robustInfo;
+            edge.second->jacobians_robust_.push_back(JtW);
             for (size_t j = i; j < verticies.size(); ++j) {
                 auto v_j = verticies[j];
 
@@ -396,13 +397,22 @@ void Problem::SolveLinearSystem() {
 
 
     if (problemType_ == ProblemType::GENERIC_PROBLEM) {
-        // PCG solver
-        MatXX H = Hessian_;
-        for (size_t i = 0; i < Hessian_.cols(); ++i) {
-            H(i, i) += currentLambda_;
+        if(solverType_ == SolverType::LM )
+        {
+            // PCG solver
+            MatXX H = Hessian_;
+            for (size_t i = 0; i < Hessian_.cols(); ++i) {
+                H(i, i) += currentLambda_;
+            }
+            // delta_x_ = PCGSolver(H, b_, H.rows() * 2);
+            delta_x_ = H.ldlt().solve(b_);
+        } else
+        {
+            //dog leg
+            ComputeDoglegStep();
         }
-        // delta_x_ = PCGSolver(H, b_, H.rows() * 2);
-        delta_x_ = H.ldlt().solve(b_);
+
+
 
     } else {
 
@@ -450,6 +460,46 @@ void Problem::SolveLinearSystem() {
     }
 
 }
+void Problem::ComputeDoglegStep(){
+    //compute gauss netwon step
+    MatXX H = Hessian_;
+    // delta_x_ = PCGSolver(H, b_, H.rows() * 2);
+    VecX hgn;
+    hgn = H.ldlt().solve(b_);
+
+    //compute gradient decent step
+    if(hgn.norm() <= current_region_raidus_ )
+    {
+        delta_x_ = hgn;
+        scale_ = currentChi_;
+    }
+    else{
+        VecX hsd = b_; //F's gradient
+        double alpha = hsd.squaredNorm() / (hsd.transpose() * Hessian_ * hsd);
+        VecX a = alpha * hsd;
+        if(a.norm() >= current_region_raidus_)
+        {
+            //TODO check the hsd.norm
+            delta_x_ = (current_region_raidus_ / hsd.norm()) * hsd;
+            scale_ = current_region_raidus_ * (2 * a.norm() - current_region_raidus_) / (2 * alpha);
+        }
+        else{
+            VecX b = hgn;
+            double c = a.transpose() * (b - a);
+            double beta;
+            if(c <= 0)
+                beta = (-c + sqrt(c*c + (b-a).squaredNorm() * (pow(current_region_raidus_,2) - a.squaredNorm()))) / (b-a).squaredNorm();
+            else
+                beta = (pow(current_region_raidus_,2) - a.squaredNorm()) / (c + sqrt(c*c + (b-a).squaredNorm() * (pow(current_region_raidus_,2) - a.squaredNorm())));
+
+            delta_x_ = alpha * hsd + beta * (hgn - alpha * hsd);
+            assert(abs(delta_x_.norm() - current_region_raidus_) < 1e-5);
+            scale_ = 0.5 * alpha *pow((1 - beta),2) * hsd.squaredNorm() + beta * (2 - beta) * currentChi_;
+        }
+    }
+
+}
+
 
 void Problem::UpdateStates() {
 
@@ -494,8 +544,8 @@ void Problem::RollbackStates() {
     }
 }
 
-/// LM
-void Problem::ComputeLambdaInitLM() {
+/// LM or DOGLEG
+void Problem::ComputeLambdaInit() {
     ni_ = 2.;
     currentLambda_ = -1.;
     currentChi_ = 0.0;
@@ -519,7 +569,9 @@ void Problem::ComputeLambdaInitLM() {
     maxDiagonal = std::min(5e10, maxDiagonal);
     double tau = 1e-5;  // 1e-5
     currentLambda_ = tau * maxDiagonal;
-//        std::cout << "currentLamba_: "<<maxDiagonal<<" "<<currentLambda_<<std::endl;
+    current_region_raidus_ = 1 / currentLambda_;
+
+    std::cout << "currentLamba_: "<<maxDiagonal<<" "<<currentLambda_<<std::endl;
 }
 
 void Problem::AddLambdatoHessianLM() {
@@ -538,13 +590,8 @@ void Problem::RemoveLambdaHessianLM() {
         Hessian_(i, i) -= currentLambda_;
     }
 }
-
-bool Problem::IsGoodStepInLM() {
-    double scale = 0;
-//    scale = 0.5 * delta_x_.transpose() * (currentLambda_ * delta_x_ + b_);
-//    scale += 1e-3;    // make sure it's non-zero :)
-    scale = 0.5* delta_x_.transpose() * (currentLambda_ * delta_x_ + b_);
-    scale += 1e-6;    // make sure it's non-zero :)
+//LM or DOGLEG
+bool Problem::IsGoodStep() {
 
     // recompute residuals after update state
     double tempChi = 0.0;
@@ -556,7 +603,19 @@ bool Problem::IsGoodStepInLM() {
         tempChi += err_prior_.norm();
     tempChi *= 0.5;          // 1/2 * err^2
 
-    double rho = (currentChi_ - tempChi) / scale;
+    double scale = 0;
+    if(solverType_ == SolverType::LM)
+    {
+        scale_ = 0;//使用之前置0
+        //    scale = 0.5 * delta_x_.transpose() * (currentLambda_ * delta_x_ + b_);
+//    scale += 1e-3;    // make sure it's non-zero :)
+        scale_ = 0.5* delta_x_.transpose() * (currentLambda_ * delta_x_ + b_);
+        scale_ += 1e-6;    // make sure it's non-zero :)
+    }//dog leg在ComputeDoglegStep()函数中已经计算过scale_
+
+    double rho = (currentChi_ - tempChi) / scale_;
+
+//    if(solverType_ == SolverType::LM)
     if (rho > 0 && isfinite(tempChi))   // last step was good, 误差在下降
     {
         double alpha = 1. - pow((2 * rho - 1), 3);

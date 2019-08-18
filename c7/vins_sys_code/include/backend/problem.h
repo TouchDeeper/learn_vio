@@ -36,6 +36,11 @@ public:
         GENERIC_PROBLEM
     };
 
+    enum class SolverType {
+        LM,
+        DOG_LEG
+    };
+
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
 
     Problem(ProblemType problemType);
@@ -89,6 +94,10 @@ public:
     //test compute prior
     void TestComputePrior();
 
+    void SetSolverType(SolverType solver_type){
+        solverType_ = solver_type;
+    }
+
 private:
 
     /// Solve的实现，解通用问题
@@ -139,7 +148,7 @@ private:
 
     /// Levenberg
     /// 计算LM算法的初始Lambda
-    void ComputeLambdaInitLM();
+    void ComputeLambdaInit();
 
     /// Hessian 对角线加上或者减去  Lambda
     void AddLambdatoHessianLM();
@@ -147,18 +156,26 @@ private:
     void RemoveLambdaHessianLM();
 
     /// LM 算法中用于判断 Lambda 在上次迭代中是否可以，以及Lambda怎么缩放
-    bool IsGoodStepInLM();
+    bool IsGoodStep();
 
     /// PCG 迭代线性求解器
     VecX PCGSolver(const MatXX &A, const VecX &b, int maxIter);
 
+    /**              DOG LEG            **/
+    void ComputeDoglegStep();
+//    double alpha_; //a = alpha * hsd
+//    int hdl_type_; //1对应hdl=hgn, 2对应hdl = -delta * g / ||g||, 3其他
+    double scale_; //L(0) - L(hdl)
+
+
     double currentLambda_;
+    double current_region_raidus_; // 1/currentLambda_
     double currentChi_;
     double stopThresholdLM_;    // LM 迭代退出阈值条件
     double ni_;                 //控制 Lambda 缩放大小
 
     ProblemType problemType_;
-
+    SolverType solverType_;
     /// 整个信息矩阵
     MatXX Hessian_;
     VecX b_;
