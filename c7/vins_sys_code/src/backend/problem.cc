@@ -230,7 +230,7 @@ bool Problem::Solve(int iterations) {
                 RollbackStates();   // 误差没下降，回滚
             }
         }
-        std::cout<<"--------- false_cnt = "<< false_cnt<<std::endl;
+//        std::cout<<"--------- false_cnt = "<< false_cnt<<std::endl;
         iter++;
 
         // 优化退出条件3： currentChi_ 跟第一次的 chi2 相比，下降了 1e6 倍则退出
