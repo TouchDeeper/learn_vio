@@ -188,14 +188,24 @@ bool Problem::Solve(int iterations) {
     double last_chi_ = 1e20;
     //save the radius to txt
     std::ofstream radius_out;
+    std::ofstream Lambda_out;
     std::ofstream chi_out;
     std::ofstream g_out;
-    radius_out.open("../bin/Radius.txt",ios::trunc);
-    chi_out.open("../bin/chi.txt",ios::trunc);
-    g_out.open("../bin/g.txt",ios::trunc);
+
+    if(VERBOSE)
+        if(RADIUS_CHI_G_OUTPUT)
+        {
+            if(solverType_ == SolverType::LM)
+                Lambda_out.open("../bin/Lambda.txt",ios::trunc);
+            else
+                radius_out.open("../bin/Radius.txt",ios::trunc);
+            chi_out.open("../bin/chi.txt",ios::trunc);
+            g_out.open("../bin/g.txt",ios::trunc);
+        }
+
     while (!stop) {
         if(solverType_ == SolverType::LM)
-            std::cout << "iter: " << iter << " , chi= " << currentChi_ << " , Lambda= " << currentLambda_ << std::endl;
+            std::cout << "iter: " << iter << " , chi= " << currentChi_ << " , Lambda= " << currentLambda_ <<std::endl;
         else
             std::cout << "iter: " << iter << " , chi= " << currentChi_ << " , Radius= " << current_region_raidus_ << std::endl;
 
@@ -204,7 +214,6 @@ bool Problem::Solve(int iterations) {
         while (!oneStepSuccess)  // 不断尝试 Lambda, 直到成功迭代一步
         {
 
-            // TODO:: 退出条件还是有问题, 好多次误差都没变化了，还在迭代计算，应该搞一个误差不变了就中止
             if ( false_cnt > 10)
             {
                 if(VERBOSE)
@@ -227,15 +236,23 @@ bool Problem::Solve(int iterations) {
 
             // 更新状态量
             UpdateStates();
-            radius_out<<current_region_raidus_<<std::endl;
-            chi_out<<currentChi_<<std::endl;
-            g_out<<b_.norm()<<std::endl;
+            if(VERBOSE)
+                if(RADIUS_CHI_G_OUTPUT)
+                {
+                    if(solverType_ == SolverType::LM)
+                        Lambda_out<<currentLambda_<<std::endl;
+                    else
+                        radius_out<<current_region_raidus_<<std::endl;
+                    chi_out<<currentChi_<<std::endl;
+                    g_out<<b_.norm()<<std::endl;
+                }
             // 判断当前步是否可行以及 LM 的 lambda 怎么更新, chi2 也计算一下
             oneStepSuccess = IsGoodStep();
             // 后续处理，
             if (oneStepSuccess) {
 //                std::cout << " get one step success\n";
 
+                std::cout<<"||delta_x||= " << delta_x_.norm()<<std::endl;
                 // 在新线性化点 构建 hessian
                 MakeHessian();
                 // TODO:: 这个判断条件可以丢掉，条件 b_max <= 1e-12 很难达到，这里的阈值条件不应该用绝对值，而是相对值
@@ -245,7 +262,6 @@ bool Problem::Solve(int iterations) {
 //                }
 //                // 优化退出条件2： 如果残差 b_max 已经很小了，那就退出
 //                stop = (b_max <= 1e-12);
-
                 //currentChi_在IsGoodStep中已经更新
                 if(last_chi_ - currentChi_ < 1e-5)
                 {
@@ -282,9 +298,15 @@ bool Problem::Solve(int iterations) {
         }
         last_chi_ = currentChi_;
     }
-    radius_out.close();
-    chi_out.close();
-    g_out.close();
+    if(VERBOSE)
+        if(RADIUS_CHI_G_OUTPUT) {
+            if (solverType_ == SolverType::LM)
+                Lambda_out.close();
+            else
+                radius_out.close();
+            chi_out.close();
+            g_out.close();
+        }
     std::cout << "problem solve cost: " << t_solve.toc() << " ms" << std::endl;
     std::cout << "   makeHessian cost: " << t_hessian_cost_ << " ms" << std::endl;
     t_hessian_cost_ = 0.;
@@ -438,19 +460,22 @@ void Problem::SolveLinearSystem() {
 
 
     if (problemType_ == ProblemType::GENERIC_PROBLEM) {
+        MatXX H = Hessian_;
+        for (size_t i = 0; i < Hessian_.cols(); ++i) {
+            H(i, i) += currentLambda_;
+        }
+        VecX hgn;
+        hgn = H.ldlt().solve(b_);
+
         if(solverType_ == SolverType::LM )
         {
             // PCG solver
-            MatXX H = Hessian_;
-            for (size_t i = 0; i < Hessian_.cols(); ++i) {
-                H(i, i) += currentLambda_;
-            }
             // delta_x_ = PCGSolver(H, b_, H.rows() * 2);
-            delta_x_ = H.ldlt().solve(b_);
+            delta_x_ = hgn;
         } else
         {
             //dog leg
-            ComputeDoglegStep();
+            ComputeDoglegStep(hgn);
         }
 
     } else {
@@ -480,33 +505,49 @@ void Problem::SolveLinearSystem() {
 
         // step2: solve Hpp * delta_x = bpp
         VecX delta_x_pp(VecX::Zero(reserve_size));
+        //TODO 这里相当于令D=I,可以改成JTJ的对角线元素，可以参考ceres的代码
+//        if(solverType_ == SolverType::LM)
+//        {
+//            for (ulong i = 0; i < ordering_poses_; ++i){
+//                H_pp_schur_(i, i) += currentLambda_; // LM Method
+//            }
+//        }
 
-        for (ulong i = 0; i < ordering_poses_; ++i) {
-            H_pp_schur_(i, i) += currentLambda_;              // LM Method
+        //ceres 在dogleg算法里计算gauss newton step时也用了LM的方法
+        for (ulong i = 0; i < ordering_poses_; ++i){
+            H_pp_schur_(i, i) += currentLambda_; // LM Method
         }
 
         // TicToc t_linearsolver;
+        VecX hgn(VecX::Zero(delta_x_.size()));
+
         delta_x_pp =  H_pp_schur_.ldlt().solve(b_pp_schur_);//  SVec.asDiagonal() * svd.matrixV() * Ub;    
-        delta_x_.head(reserve_size) = delta_x_pp;
+        hgn.head(reserve_size) = delta_x_pp;
         // std::cout << " Linear Solver Time Cost: " << t_linearsolver.toc() << std::endl;
 
         // step3: solve Hmm * delta_x = bmm - Hmp * delta_x_pp;
         VecX delta_x_ll(marg_size);
         delta_x_ll = Hmm_inv * (bmm - Hmp * delta_x_pp);
-        delta_x_.tail(marg_size) = delta_x_ll;
+        hgn.tail(marg_size) = delta_x_ll;
+
+
+        if(solverType_ == SolverType::LM)
+        {
+            delta_x_ = hgn;
+        }
+        else
+            ComputeDoglegStep(hgn);
+
+
 
 //        std::cout << "schur time cost: "<< t_Hmminv.toc()<<std::endl;
     }
 
 }
-void Problem::ComputeDoglegStep(){
-    //compute gauss netwon step
-    MatXX H = Hessian_;
-    // delta_x_ = PCGSolver(H, b_, H.rows() * 2);
-    VecX hgn;
-    hgn = H.ldlt().solve(b_);
+void Problem::ComputeDoglegStep(const VecX hgn){
 
-    //compute gradient decent step
+
+    //2. compute hdl
     scale_ = 0; //使用之前先置０
     if(hgn.norm() <= current_region_raidus_ )
     {
@@ -517,6 +558,7 @@ void Problem::ComputeDoglegStep(){
         scale_ = currentChi_;
     }
     else{
+        // compute gradient decent step
         VecX hsd = b_; //F's gradient
         double alpha = hsd.squaredNorm() / (hsd.transpose() * Hessian_ * hsd);
         VecX a = alpha * hsd;
@@ -534,12 +576,11 @@ void Problem::ComputeDoglegStep(){
                 if(HDL_CHOOSE)
                     std::cout<<"hdl choose: hdl = alpha * hsd + beta *(hgn - alpha * hsd) "<<std::endl;
             VecX b = hgn;
-            double c = a.transpose() * (b - a);
+            double c = a.transpose() * b - a.squaredNorm();
             double beta;
-            if(c <= 0)
-                beta = (-c + sqrt(c*c + (b-a).squaredNorm() * (pow(current_region_raidus_,2) - a.squaredNorm()))) / (b-a).squaredNorm();
-            else
-                beta = (pow(current_region_raidus_,2) - a.squaredNorm()) / (c + sqrt(c*c + (b-a).squaredNorm() * (pow(current_region_raidus_,2) - a.squaredNorm())));
+            double d = sqrt(c*c + (b-a).squaredNorm() * (pow(current_region_raidus_,2) - a.squaredNorm()));
+            beta = (c <= 0) ? (d - c) / (b-a).squaredNorm()
+                            : (pow(current_region_raidus_,2) - a.squaredNorm()) / (c + d);
 
             delta_x_ = alpha * hsd + beta * (hgn - alpha * hsd);
             assert(abs(delta_x_.norm() - current_region_raidus_) < 1e-5);
@@ -580,7 +621,7 @@ void Problem::UpdateStates() {
 }
 
 void Problem::RollbackStates() {
-
+    //TODO 检查下dog-leg 这里是否要改？
     // update vertex
     for (auto vertex: verticies_) {
         vertex.second->RollBackParameters();
@@ -595,7 +636,7 @@ void Problem::RollbackStates() {
 
 /// LM or DOGLEG
 void Problem::ComputeLambdaInit() {
-    ni_ = 2.;
+
     currentLambda_ = -1.;
     currentChi_ = 0.0;
 
@@ -618,6 +659,7 @@ void Problem::ComputeLambdaInit() {
     maxDiagonal = std::min(5e10, maxDiagonal);
     double tau = 1e-5;  // 1e-5
     currentLambda_ = tau * maxDiagonal;
+    min_Lambda_ = currentLambda_;
     current_region_raidus_ = 1 / currentLambda_;
 
     std::cout << "currentLamba_: "<<maxDiagonal<<" "<<currentLambda_<<std::endl;
@@ -652,7 +694,6 @@ bool Problem::IsGoodStep() {
         tempChi += err_prior_.norm();
     tempChi *= 0.5;          // 1/2 * err^2
 
-    double scale = 0;
     if(solverType_ == SolverType::LM)
     {
         scale_ = 0;//使用之前置0
@@ -660,6 +701,10 @@ bool Problem::IsGoodStep() {
 //    scale += 1e-3;    // make sure it's non-zero :)
         scale_ = 0.5* delta_x_.transpose() * (currentLambda_ * delta_x_ + b_);
         scale_ += 1e-6;    // make sure it's non-zero :)
+    } else{
+//        scale_ = 0;
+//        scale_ = b_.transpose() * delta_x_ - 0.5 * delta_x_.transpose() * Hessian_ * delta_x_;
+        scale_ += 1e-6;
     }//dog leg在ComputeDoglegStep()函数中已经计算过scale_
 
     double rho = (currentChi_ - tempChi) / scale_;
@@ -681,38 +726,47 @@ bool Problem::IsGoodStep() {
             return false;
         }
     } else{
-        if (rho > 0 && isfinite(tempChi))   // last step was good, 误差在下降
-        {
-            double alpha = 1. - pow((2 * rho - 1), 3);
-            alpha = std::min(alpha, 2. / 3.);
-            double scaleFactor = (std::max)(1. / 3., alpha);
-            currentLambda_ *= scaleFactor;
-            ni_ = 2;
-            currentChi_ = tempChi;
-            current_region_raidus_ = 1 / currentLambda_;
-            return true;
-        } else {
-            currentLambda_ *= ni_;
-            ni_ *= 2;
-            current_region_raidus_ = 1 / currentLambda_;
-            return false;
-        }
-//        if(rho < 0.25)
+//        if (rho > 0 && isfinite(tempChi))   // last step was good, 误差在下降
 //        {
-//            current_region_raidus_ /= 2;
-////            ni_ *= 2;
-//
-//            return false;
-//        }
-//
-//        else
-//        {
-//            if(rho > 0.75)
-//                current_region_raidus_ = max(current_region_raidus_, 3 * delta_x_.norm());
+//            double alpha = 1. - pow((2 * rho - 1), 3);
+//            alpha = std::min(alpha, 2. / 3.);
+//            double scaleFactor = (std::max)(1. / 3., alpha);
+//            currentLambda_ *= scaleFactor;
 //            ni_ = 2;
 //            currentChi_ = tempChi;
+//            current_region_raidus_ = 1 / currentLambda_;
 //            return true;
+//        } else {
+//            currentLambda_ *= ni_;
+//            ni_ *= 2;
+//            current_region_raidus_ = 1 / currentLambda_;
+//            return false;
 //        }
+
+
+        if(rho < 0 || !isfinite(tempChi))
+        {
+            currentLambda_ *= ni_;
+            current_region_raidus_ *= 0.5;
+//            ni_ *= 2;
+
+            return false;
+        }
+
+        else
+        {
+            if(rho < 0.25)
+            {
+                current_region_raidus_ *= 0.5;
+            }
+            if(rho > 0.75)
+            {
+                current_region_raidus_ = max(current_region_raidus_, 3 * delta_x_.norm());
+            }
+            currentLambda_ = std::max(min_Lambda_, 2.0 * currentLambda_ / ni_);
+            currentChi_ = tempChi;
+            return true;
+        }
 
 
 

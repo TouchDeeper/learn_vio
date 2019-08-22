@@ -97,6 +97,13 @@ public:
 
     void SetSolverType(SolverType solver_type){
         solverType_ = solver_type;
+        if (solver_type == SolverType::LM)
+        {
+            ni_ = 2;
+        } else
+        {
+            ni_ = 2;//ceres中给的是10,但curve_fitting跑的结果是２比较快
+        }
     }
 
 private:
@@ -163,14 +170,15 @@ private:
     VecX PCGSolver(const MatXX &A, const VecX &b, int maxIter);
 
     /**              DOG LEG            **/
-    void ComputeDoglegStep();
+    void ComputeDoglegStep(const VecX hgn);
 //    double alpha_; //a = alpha * hsd
 //    int hdl_type_; //1对应hdl=hgn, 2对应hdl = -delta * g / ||g||, 3其他
     double scale_; //L(0) - L(hdl)
 
 
     double currentLambda_;
-    double current_region_raidus_; // 1/currentLambda_
+    double min_Lambda_;
+    double current_region_raidus_;
     double currentChi_;
     double stopThresholdLM_;    // LM 迭代退出阈值条件
     double ni_;                 //控制 Lambda 缩放大小

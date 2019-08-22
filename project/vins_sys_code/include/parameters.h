@@ -15,8 +15,10 @@ extern std::string NOW_LOOP;
 extern int VERBOSE;
 extern int STOP_REASON;//是否输出每次迭代的停止原因；
 extern int HDL_CHOOSE; //是否输出hdl选择过程
+extern int RADIUS_CHI_G_OUTPUT; //是否输出dog-leg优化过程中的radius, chi,g
 extern std::string sConfig_file;
 extern double stopThresholdGradient; // 迭代退出gradient阈值条件
+extern std::string SOLVER_TYPE; //选择solver type (LM, DOGLEG)
 //feature tracker
 // extern int ROW;
 // extern int COL;

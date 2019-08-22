@@ -15,9 +15,12 @@ int RUN_NUM;
 int VERBOSE;//是否详细输出
 int STOP_REASON;
 int HDL_CHOOSE;
+int RADIUS_CHI_G_OUTPUT;
 double stopThresholdGradient;
 vector <string> LOOP_PARAMETER;
 string NOW_LOOP = "";
+std::string SOLVER_TYPE;
+
 vector<Eigen::Matrix3d> RIC;
 vector<Eigen::Vector3d> TIC;
 std::string sConfig_file;
@@ -93,8 +96,9 @@ void readParameters(string config_file)
     VERBOSE = fsSettings["verbose"];
     STOP_REASON = fsSettings["stop_reason"];
     HDL_CHOOSE = fsSettings["hdl_choose"];
-
+    RADIUS_CHI_G_OUTPUT = fsSettings["radius_chi_g_output"];
     stopThresholdGradient = fsSettings["stopThresholdGradient"];
+    fsSettings["solver_type"] >> SOLVER_TYPE;
 
     if(!LOOP_PARAMETER.empty())
     {
@@ -256,6 +260,7 @@ void readParameters(string config_file)
         <<  "\n  FISHEYE:"<<FISHEYE
         <<  "\n  PUB_THIS_FRAME:"<<PUB_THIS_FRAME
         <<  "\n  stopThresholdGradient:"<<stopThresholdGradient
+        <<  "\n  SOLVER_TYPE:"<<SOLVER_TYPE
     << endl;
 
 }

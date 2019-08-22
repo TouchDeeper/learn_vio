@@ -1121,7 +1121,11 @@ void Estimator::problemSolve()
             problem.ExtendHessiansPriorSize(15); // 但是这个 prior 还是之前的维度，需要扩展下装新的pose，每个新加入的帧会新增１５维的状态量
         }
     }
-    problem.SetSolverType(backend::Problem::SolverType::LM);
+    if(SOLVER_TYPE == "LM")
+        problem.SetSolverType(backend::Problem::SolverType::LM);
+    else
+        problem.SetSolverType(backend::Problem::SolverType::DOG_LEG);
+
     problem.Solve(10);
 
     // update bprior_,  Hprior_ do not need update

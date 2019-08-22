@@ -87,7 +87,10 @@ int main()
 
     std::cout<<"\nTest CurveFitting start..."<<std::endl;
     /// 使用 LM 求解
-    problem.SetSolverType(Problem::SolverType::DOG_LEG);
+    if(SOLVER_TYPE == "LM")
+        problem.SetSolverType(Problem::SolverType::LM);
+    else
+        problem.SetSolverType(Problem::SolverType::DOG_LEG);
     problem.Solve(30);
 
     std::cout << "-------After optimization, we got these parameters :" << std::endl;
