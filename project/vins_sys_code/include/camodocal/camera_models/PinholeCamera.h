@@ -172,7 +172,7 @@ PinholeCamera::spaceToPlane(const T* const params,
     T p2 = params[3];
     T fx = params[4];
     T fy = params[5];
-    T alpha = T(0); //cameraParams.alpha();
+    T alpha = T(0); //cameraParams.alpha_();
     T cx = params[6];
     T cy = params[7];
 

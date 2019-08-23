@@ -271,10 +271,10 @@ bool Problem::Solve(int iterations) {
                     stop = true;
                 }
                 //b_在MakeHessian()中更新了
-                if(b_.norm() < stopThresholdGradient){
+                if(b_.lpNorm<Eigen::Infinity>() < stopThresholdGradient){
                     if(VERBOSE)
                         if(STOP_REASON)
-                            std::cout << "stop reason: ||g|| < stopThresholdGradient" << std::endl;
+                            std::cout << "stop reason: ||g||∞ < stopThresholdGradient" << std::endl;
                     stop = true;
                 }
                 false_cnt = 0;
@@ -309,7 +309,9 @@ bool Problem::Solve(int iterations) {
         }
     std::cout << "problem solve cost: " << t_solve.toc() << " ms" << std::endl;
     std::cout << "   makeHessian cost: " << t_hessian_cost_ << " ms" << std::endl;
+    std::cout << "   reuse save cost: " << t_reuse_cost_ << " ms" << std::endl;
     t_hessian_cost_ = 0.;
+    t_reuse_cost_ = 0 ;
     return true;
 }
 
@@ -559,32 +561,37 @@ void Problem::ComputeDoglegStep(const VecX hgn){
     }
     else{
         // compute gradient decent step
-        VecX hsd = b_; //F's gradient
-        double alpha = hsd.squaredNorm() / (hsd.transpose() * Hessian_ * hsd);
-        VecX a = alpha * hsd;
-        if(a.norm() >= current_region_raidus_)
+        if(!reuse_ || hsd_.size()<1)//加上第二个判断条件是因为第一次如果是case1然后又失效的话，hsd此时无值，reuse_又等于true
+        {
+            hsd_ = b_; //F's gradient
+            alpha_ = hsd_.squaredNorm() / (hsd_.transpose() * Hessian_ * hsd_);
+            a_ = alpha_ * hsd_;
+        }
+
+
+        if(a_.norm() >= current_region_raidus_)
         {
             if(VERBOSE)
                 if(HDL_CHOOSE)
-                    std::cout<<"hdl choose: a.norm() >= current_region_raidus_ "<<std::endl;
-            //TODO check the hsd.norm
-            delta_x_ = (current_region_raidus_ / hsd.norm()) * hsd;
-            scale_ = current_region_raidus_ * (2 * a.norm() - current_region_raidus_) / (2 * alpha);
+                    std::cout<<"hdl choose: a_.norm() >= current_region_raidus_ "<<std::endl;
+            //TODO check the hsd_.norm
+            delta_x_ = current_region_raidus_  * hsd_.normalized();
+            scale_ = current_region_raidus_ * (2 * a_.norm() - current_region_raidus_) / (2 * alpha_);
         }
         else{
             if(VERBOSE)
                 if(HDL_CHOOSE)
-                    std::cout<<"hdl choose: hdl = alpha * hsd + beta *(hgn - alpha * hsd) "<<std::endl;
+                    std::cout<<"hdl choose: hdl = alpha_ * hsd_ + beta *(hgn - alpha_ * hsd_) "<<std::endl;
             VecX b = hgn;
-            double c = a.transpose() * b - a.squaredNorm();
+            double c = a_.transpose() * b - a_.squaredNorm();
             double beta;
-            double d = sqrt(c*c + (b-a).squaredNorm() * (pow(current_region_raidus_,2) - a.squaredNorm()));
-            beta = (c <= 0) ? (d - c) / (b-a).squaredNorm()
-                            : (pow(current_region_raidus_,2) - a.squaredNorm()) / (c + d);
+            double d = sqrt(c*c + (b-a_).squaredNorm() * (pow(current_region_raidus_,2) - a_.squaredNorm()));
+            beta = (c <= 0) ? (d - c) / (b-a_).squaredNorm()
+                            : (pow(current_region_raidus_,2) - a_.squaredNorm()) / (c + d);
 
-            delta_x_ = alpha * hsd + beta * (hgn - alpha * hsd);
+            delta_x_ = alpha_ * hsd_ + beta * (hgn - alpha_ * hsd_);
             assert(abs(delta_x_.norm() - current_region_raidus_) < 1e-5);
-            scale_ = 0.5 * alpha *pow((1 - beta),2) * hsd.squaredNorm() + beta * (2 - beta) * currentChi_;
+            scale_ = 0.5 * alpha_ *pow((1 - beta),2) * hsd_.squaredNorm() + beta * (2 - beta) * currentChi_;
         }
     }
 
@@ -661,6 +668,7 @@ void Problem::ComputeLambdaInit() {
     currentLambda_ = tau * maxDiagonal;
     min_Lambda_ = currentLambda_;
     current_region_raidus_ = 1 / currentLambda_;
+    reuse_ = false;
 
     std::cout << "currentLamba_: "<<maxDiagonal<<" "<<currentLambda_<<std::endl;
 }
@@ -703,7 +711,9 @@ bool Problem::IsGoodStep() {
         scale_ += 1e-6;    // make sure it's non-zero :)
     } else{
 //        scale_ = 0;
-//        scale_ = b_.transpose() * delta_x_ - 0.5 * delta_x_.transpose() * Hessian_ * delta_x_;
+//        auto scale_temp = b_.transpose() * delta_x_ - 0.5 * delta_x_.transpose() * Hessian_ * delta_x_;
+//        std::cout<<"scale_ = "<<scale_<<"       scale_temp = "<<scale_temp<<std::endl;
+//        scale_ = scale_temp(0);
         scale_ += 1e-6;
     }//dog leg在ComputeDoglegStep()函数中已经计算过scale_
 
@@ -728,9 +738,9 @@ bool Problem::IsGoodStep() {
     } else{
 //        if (rho > 0 && isfinite(tempChi))   // last step was good, 误差在下降
 //        {
-//            double alpha = 1. - pow((2 * rho - 1), 3);
-//            alpha = std::min(alpha, 2. / 3.);
-//            double scaleFactor = (std::max)(1. / 3., alpha);
+//            double alpha_ = 1. - pow((2 * rho - 1), 3);
+//            alpha_ = std::min(alpha_, 2. / 3.);
+//            double scaleFactor = (std::max)(1. / 3., alpha_);
 //            currentLambda_ *= scaleFactor;
 //            ni_ = 2;
 //            currentChi_ = tempChi;
@@ -749,7 +759,7 @@ bool Problem::IsGoodStep() {
             currentLambda_ *= ni_;
             current_region_raidus_ *= 0.5;
 //            ni_ *= 2;
-
+            reuse_ = true;
             return false;
         }
 
@@ -765,6 +775,7 @@ bool Problem::IsGoodStep() {
             }
             currentLambda_ = std::max(min_Lambda_, 2.0 * currentLambda_ / ni_);
             currentChi_ = tempChi;
+            reuse_ = false;
             return true;
         }
 
@@ -780,7 +791,7 @@ bool Problem::IsGoodStep() {
  *
  */
 VecX Problem::PCGSolver(const MatXX &A, const VecX &b, int maxIter = -1) {
-    assert(A.rows() == A.cols() && "PCG solver ERROR: A is not a square matrix");
+    assert(A.rows() == A.cols() && "PCG solver ERROR: A is not a_ square matrix");
     int rows = b.rows();
     int n = maxIter < 0 ? rows : maxIter;
     VecX x(VecX::Zero(rows));

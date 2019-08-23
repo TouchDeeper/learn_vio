@@ -71,7 +71,7 @@ namespace cv {
         P4(Range::all(), Range(0, 3)) = R2 * 1.0; P4.col(3) = -t * 1.0;
 
         // Do the cheirality check.
-        // Notice here a threshold dist is used to filter
+        // Notice here a_ threshold dist is used to filter
         // out far away points (i.e. infinite points) since
         // there depth may vary between postive and negtive.
         double dist = 50.0;

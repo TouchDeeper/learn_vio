@@ -9,7 +9,7 @@
 namespace camodocal
 {
 
-// Returns the 3D cross product skew symmetric matrix of a given 3D vector
+// Returns the 3D cross product skew symmetric matrix of a_ given 3D vector
 template<typename T>
 Eigen::Matrix<T, 3, 3> skew(const Eigen::Matrix<T, 3, 1>& vec)
 {
@@ -251,7 +251,7 @@ Eigen::Matrix<T, 4, 4> poseWithSphericalTranslation(const T* const q, const T* c
     return pose;
 }
 
-// Returns the Sampson error of a given essential matrix and 2 image points
+// Returns the Sampson error of a_ given essential matrix and 2 image points
 template<typename T>
 T sampsonError(const Eigen::Matrix<T, 3, 3>& E,
                const Eigen::Matrix<T, 3, 1>& p1,
@@ -268,7 +268,7 @@ T sampsonError(const Eigen::Matrix<T, 3, 3>& E,
     return err;
 }
 
-// Returns the Sampson error of a given rotation/translation and 2 image points
+// Returns the Sampson error of a_ given rotation/translation and 2 image points
 template<typename T>
 T sampsonError(const Eigen::Matrix<T, 3, 3>& R,
                const Eigen::Matrix<T, 3, 1>& t,
@@ -289,7 +289,7 @@ T sampsonError(const Eigen::Matrix<T, 3, 3>& R,
     return err;
 }
 
-// Returns the Sampson error of a given rotation/translation and 2 image points
+// Returns the Sampson error of a_ given rotation/translation and 2 image points
 template<typename T>
 T sampsonError(const Eigen::Matrix<T, 4, 4>& H,
                const Eigen::Matrix<T, 3, 1>& p1,

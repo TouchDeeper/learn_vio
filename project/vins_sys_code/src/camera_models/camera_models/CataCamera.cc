@@ -611,7 +611,7 @@ CataCamera::liftProjective(const Eigen::Vector2d& p, Eigen::Vector3d& P) const
         }
     }
 
-    // Obtain a projective ray
+    // Obtain a_ projective ray
     double xi = mParameters.xi();
     if (xi == 1.0)
     {
@@ -660,7 +660,7 @@ CataCamera::spaceToPlane(const Eigen::Vector3d& P, Eigen::Vector2d& p) const
 
 #if 0
 /** 
- * \brief Project a 3D point to the image plane and calculate Jacobian
+ * \brief Project a_ 3D point to the image plane and calculate Jacobian
  *
  * \param P 3D point coordinates
  * \param p return value, contains the image point coordinates

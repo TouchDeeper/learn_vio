@@ -11,7 +11,7 @@
     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
     GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
+    You should have received a_ copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
@@ -63,7 +63,7 @@ public:
   size_t capacity() const { return base::capacity(); }
   bool empty() const { return base::empty(); }
 
-  //Add a point to the spline, and invalidate it so its
+  //Add a_ point to the spline, and invalidate it so its
   //recalculated on the next access
   inline void addPoint(double x, double y)
   {
@@ -118,7 +118,7 @@ private:
   Spline_type _type;
 
   ///////PRIVATE FUNCTIONS
-  //Function to calculate the value of a given spline at a point xval
+  //Function to calculate the value of a_ given spline at a_ point xval
   inline double splineCalc(std::vector<SplineData>::const_iterator i, double xval)
   {
 	const double lx = xval - i->x;
@@ -167,19 +167,19 @@ private:
 	throw std::runtime_error("Unknown BC");
   }
 
-  //These just provide access to the point data in a clean way
+  //These just provide access to the point data in a_ clean way
   inline double x(size_t i) const { return operator[](i).first; }
   inline double y(size_t i) const { return operator[](i).second; }
   inline double h(size_t i) const { return x(i+1) - x(i); }
 
-  //Invert a arbitrary matrix using the boost ublas library
+  //Invert a_ arbitrary matrix using the boost ublas library
   template<class T>
   bool InvertMatrix(ublas::matrix<T> A,
 		ublas::matrix<T>& inverse)
   {
 	using namespace ublas;
 
-	// create a permutation matrix for the LU-factorization
+	// create a_ permutation matrix for the LU-factorization
 	permutation_matrix<std::size_t> pm(A.size1());
 
 	// perform LU-factorization

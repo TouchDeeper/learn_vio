@@ -181,7 +181,7 @@ CataCamera::spaceToPlane(const T* const params,
     T p2 = params[4];
     T gamma1 = params[5];
     T gamma2 = params[6];
-    T alpha = T(0); //cameraParams.alpha();
+    T alpha = T(0); //cameraParams.alpha_();
     T u0 = params[7];
     T v0 = params[8];
 

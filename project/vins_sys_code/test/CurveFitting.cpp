@@ -61,7 +61,7 @@ int main()
     Problem problem(Problem::ProblemType::GENERIC_PROBLEM);
     shared_ptr< CurveFittingVertex > vertex(new CurveFittingVertex());
 
-    // 设定待估计参数 a, b, c初始值
+    // 设定待估计参数 a_, b, c初始值
     vertex->SetParameters(Eigen::Vector3d (0.,0.,0.));
     // 将待估计的参数加入最小二乘问题
     problem.AddVertex(vertex);
@@ -73,7 +73,7 @@ int main()
         double n = noise(generator);
         // 观测 y
         double y = std::exp( a*x*x + b*x + c ) + n;
-//        double y = std::exp( a*x*x + b*x + c );
+//        double y = std::exp( a_*x*x + b*x + c );
 
         // 每个观测对应的残差函数
         shared_ptr< CurveFittingEdge > edge(new CurveFittingEdge(x,y));

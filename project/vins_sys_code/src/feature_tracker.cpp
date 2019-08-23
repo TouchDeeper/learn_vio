@@ -398,7 +398,7 @@ void FeatureTracker::showUndistortion(const string &name)
             m_camera->liftProjective(a, b);
             distortedp.push_back(a);
             undistortedp.push_back(Eigen::Vector2d(b.x() / b.z(), b.y() / b.z()));
-            //printf("%f,%f->%f,%f,%f\n)\n", a.x(), a.y(), b.x(), b.y(), b.z());
+            //printf("%f,%f->%f,%f,%f\n)\n", a_.x(), a_.y(), b.x(), b.y(), b.z());
         }
     for (int i = 0; i < int(undistortedp.size()); i++)
     {

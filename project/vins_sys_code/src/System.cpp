@@ -456,7 +456,7 @@ void System::ProcessBackEnd()
                     ry = imu_msg->angular_velocity.y();
                     rz = imu_msg->angular_velocity.z();
                     estimator.processIMU(dt, Vector3d(dx, dy, dz), Vector3d(rx, ry, rz));
-                    // printf("1 BackEnd imu: dt:%f a: %f %f %f w: %f %f %f\n",dt, dx, dy, dz, rx, ry, rz);
+                    // printf("1 BackEnd imu: dt:%f a_: %f %f %f w: %f %f %f\n",dt, dx, dy, dz, rx, ry, rz);
                 }
                 else//当前measurement最后一帧的IMU数据有可能超过img的时间
                 {
@@ -476,7 +476,7 @@ void System::ProcessBackEnd()
                     ry = w1 * ry + w2 * imu_msg->angular_velocity.y();
                     rz = w1 * rz + w2 * imu_msg->angular_velocity.z();
                     estimator.processIMU(dt_1, Vector3d(dx, dy, dz), Vector3d(rx, ry, rz));
-                    //printf("dimu: dt:%f a: %f %f %f w: %f %f %f\n",dt_1, dx, dy, dz, rx, ry, rz);
+                    //printf("dimu: dt:%f a_: %f %f %f w: %f %f %f\n",dt_1, dx, dy, dz, rx, ry, rz);
                 }
             }
 

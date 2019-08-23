@@ -35,7 +35,7 @@ public:
     cv::Point2f pt;                     // X and y coordinates
     int row;                            // Row and column of the corner
     int column;                         // in the found pattern
-    bool needsNeighbor;                 // Does the corner require a neighbor?
+    bool needsNeighbor;                 // Does the corner require a_ neighbor?
     int count;                          // number of corner neighbors
     ChessboardCornerPtr neighbors[4];   // pointer to all corner neighbors
 };

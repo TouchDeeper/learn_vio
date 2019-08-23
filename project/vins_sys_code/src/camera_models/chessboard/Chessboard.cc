@@ -169,7 +169,7 @@ Chessboard::findChessboardCornersImproved(const cv::Mat& image,
     // PART 1: FIND LARGEST PATTERN
     //-----------------------------------------------------------------------
     // Checker patterns are tried to be found by dilating the background and
-    // then applying a canny edge finder on the closed contours (checkers).
+    // then applying a_ canny edge finder on the closed contours (checkers).
     // Try one dilation run, but if the pattern is not found, repeat until
     // max_dilations is reached.
 
@@ -208,7 +208,7 @@ Chessboard::findChessboardCornersImproved(const cv::Mat& image,
             }
 
             // MARTIN's Code
-            // Use both a rectangular and a cross kernel. In this way, a more
+            // Use both a_ rectangular and a_ cross kernel. In this way, a_ more
             // homogeneous dilation is performed, which is crucial for small,
             // distorted checkers. Use the CROSS kernel first, since its action
             // on the image is more subtle
@@ -228,7 +228,7 @@ Chessboard::findChessboardCornersImproved(const cv::Mat& image,
             if (dilations >= 6)
                 cv::dilate(thresh_img, thresh_img, kernel2);
 
-            // In order to find rectangles that go to the edge, we draw a white
+            // In order to find rectangles that go to the edge, we draw a_ white
             // line around the image edge. Otherwise FindContours will miss those
             // clipped rectangle contours. The border color will be the image mean,
             // because otherwise we risk screwing up filters like cvSmooth()
@@ -251,10 +251,10 @@ Chessboard::findChessboardCornersImproved(const cv::Mat& image,
             findQuadNeighbors(quads, dilations);
 
             // The connected quads will be organized in groups. The following loop
-            // increases a "group_idx" identifier.
+            // increases a_ "group_idx" identifier.
             // The function "findConnectedQuads assigns all connected quads
-            // a unique group ID.
-            // If more quadrangles were assigned to a given group (i.e. connected)
+            // a_ unique group ID.
+            // If more quadrangles were assigned to a_ given group (i.e. connected)
             // than are expected by the input variable "patternSize", the
             // function "cleanFoundConnectedQuads" erases the surplus
             // quadrangles by minimizing the convex hull of the remaining pattern.
@@ -273,7 +273,7 @@ Chessboard::findChessboardCornersImproved(const cv::Mat& image,
                 cleanFoundConnectedQuads(quadGroup, patternSize);
 
                 // The following function labels all corners of every quad
-                // with a row and column entry.
+                // with a_ row and column entry.
                 // "count" specifies the number of found quads in "quad_group"
                 // with group identifier "group_idx"
                 // The last parameter is set to "true", because this is the
@@ -404,7 +404,7 @@ Chessboard::cleanFoundConnectedQuads(std::vector<ChessboardQuadPtr>& quadGroup,
 
         ChessboardQuadPtr& q0 = quadGroup[minBoxAreaIndex];
 
-        // remove any references to this quad as a neighbor
+        // remove any references to this quad as a_ neighbor
         for (size_t i = 0; i < quadGroup.size(); ++i)
         {
             ChessboardQuadPtr& q = quadGroup.at(i);
@@ -445,7 +445,7 @@ Chessboard::findConnectedQuads(std::vector<ChessboardQuadPtr>& quads,
 {
     ChessboardQuadPtr q;
 
-    // Scan the array for a first unlabeled quad
+    // Scan the array for a_ first unlabeled quad
     for (size_t i = 0; i < quads.size(); ++i)
     {
         ChessboardQuadPtr& quad = quads.at(i);
@@ -462,7 +462,7 @@ Chessboard::findConnectedQuads(std::vector<ChessboardQuadPtr>& quads,
         return;
     }
 
-    // Recursively find a group of connected quads starting from the seed quad
+    // Recursively find a_ group of connected quads starting from the seed quad
 
     std::vector<ChessboardQuadPtr> stack;
     stack.push_back(q);
@@ -495,7 +495,7 @@ void
 Chessboard::labelQuadGroup(std::vector<ChessboardQuadPtr>& quadGroup,
                            cv::Size patternSize, bool firstRun)
 {
-    // If this is the first function call, a seed quad needs to be selected
+    // If this is the first function call, a_ seed quad needs to be selected
     if (firstRun)
     {
         // Search for the (first) quad with the maximum number of neighbors
@@ -519,7 +519,7 @@ Chessboard::labelQuadGroup(std::vector<ChessboardQuadPtr>& quadGroup,
 
         // Mark the starting quad's (per definition) upper left corner with
         //(0,0) and then proceed clockwise
-        // The following labeling sequence enshures a "right coordinate system"
+        // The following labeling sequence enshures a_ "right coordinate system"
         ChessboardQuadPtr& q = quadGroup.at(mark);
 
         q->labeled = true;
@@ -653,12 +653,12 @@ Chessboard::labelQuadGroup(std::vector<ChessboardQuadPtr>& quadGroup,
 
     // Label all internal corners with "needsNeighbor" = false
     // Label all external corners with "needsNeighbor" = true,
-    // except if in a given dimension the pattern size is reached
+    // except if in a_ given dimension the pattern size is reached
     for (int i = min_row; i <= max_row; ++i)
     {
         for (int j = min_column; j <= max_column; ++j)
         {
-            // A flag that indicates, whether a row/column combination is
+            // A flag that indicates, whether a_ row/column combination is
             // executed multiple times
             bool flag = false;
 
@@ -682,7 +682,7 @@ Chessboard::labelQuadGroup(std::vector<ChessboardQuadPtr>& quadGroup,
                         }
                         else
                         {
-                            // Mark with needs a neighbor, but note the
+                            // Mark with needs a_ neighbor, but note the
                             // address
                             q->corners[l]->needsNeighbor = true;
                             cornerID = l;
@@ -707,9 +707,9 @@ Chessboard::labelQuadGroup(std::vector<ChessboardQuadPtr>& quadGroup,
         {
             // the following "number" indicates the number of corners which
             // correspond to the given (i,j) value
-            // 1    is a border corner or a conrer which still needs a neighbor
-            // 2    is a fully connected internal corner
-            // >2    something went wrong during labeling, report a warning
+            // 1    is a_ border corner or a_ conrer which still needs a_ neighbor
+            // 2    is a_ fully connected internal corner
+            // >2    something went wrong during labeling, report a_ warning
             int number = 1;
 
             // remember corner and quad
@@ -750,7 +750,7 @@ Chessboard::labelQuadGroup(std::vector<ChessboardQuadPtr>& quadGroup,
                         else if (number > 2)
                         {
                             // Something went wrong during row/column labeling
-                            // Report a Warning
+                            // Report a_ Warning
                             // ->Implemented in the function "mrWriteCorners"
                         }
 
@@ -765,7 +765,7 @@ Chessboard::labelQuadGroup(std::vector<ChessboardQuadPtr>& quadGroup,
 
     // Bordercorners don't need any neighbors, if the pattern size in the
     // respective direction is reached
-    // The only time we can make shure that the target pattern size is reached in a given
+    // The only time we can make shure that the target pattern size is reached in a_ given
     // dimension, is when the larger side has reached the target size in the maximal
     // direction, or if the larger side is larger than the smaller target size and the
     // smaller side equals the smaller target size
@@ -778,7 +778,7 @@ Chessboard::labelQuadGroup(std::vector<ChessboardQuadPtr>& quadGroup,
     {
         flagSmallerDim1 = true;
         // We found out that in the column direction the target pattern size is reached
-        // Therefore border column corners do not need a neighbor anymore
+        // Therefore border column corners do not need a_ neighbor anymore
         // Go through all corners
         for (int k = 0; k < (int)quadGroup.size(); ++k)
         {
@@ -801,7 +801,7 @@ Chessboard::labelQuadGroup(std::vector<ChessboardQuadPtr>& quadGroup,
     {
         flagSmallerDim2 = true;
         // We found out that in the column direction the target pattern size is reached
-        // Therefore border column corners do not need a neighbor anymore
+        // Therefore border column corners do not need a_ neighbor anymore
         // Go through all corners
         for (int k = 0; k < (int)quadGroup.size(); ++k)
         {
@@ -825,8 +825,8 @@ Chessboard::labelQuadGroup(std::vector<ChessboardQuadPtr>& quadGroup,
     //    -    If one is true and the other false, then the pattern target
     //        size was reached in in one direction -> We can check, whether the target
     //        pattern size is also reached in the other direction
-    //  -    If both are set to true, then we deal with a square board -> do nothing
-    //  -    If both are set to false -> There is a possibility that the larger side is
+    //  -    If both are set to true, then we deal with a_ square board -> do nothing
+    //  -    If both are set to false -> There is a_ possibility that the larger side is
     //        larger than the smaller target size -> Check and if true, then check whether
     //        the other side has the same size as the smaller target size
     if ((flagSmallerDim1 == false && flagSmallerDim2 == true))
@@ -972,7 +972,7 @@ Chessboard::findQuadNeighbors(std::vector<ChessboardQuadPtr>& quads, int dilatio
 
                 for (int j = 0; j < 4; ++j)
                 {
-                    // If it already has a neighbor
+                    // If it already has a_ neighbor
                     if (quad->neighbors[j])
                     {
                         continue;
@@ -999,7 +999,7 @@ Chessboard::findQuadNeighbors(std::vector<ChessboardQuadPtr>& quads, int dilatio
                 }
             }
 
-            // Have we found a matching corner point?
+            // Have we found a_ matching corner point?
             if (closestCornerIdx >= 0 && minDist < FLT_MAX)
             {
                 ChessboardCornerPtr closestCorner = closestQuad->corners[closestCornerIdx];
@@ -1040,7 +1040,7 @@ Chessboard::findQuadNeighbors(std::vector<ChessboardQuadPtr>& quads, int dilatio
 //===========================================================================
 // AUGMENT PATTERN WITH ADDITIONAL QUADS
 //===========================================================================
-// The first part of the function is basically a copy of
+// The first part of the function is basically a_ copy of
 // "findQuadNeighbors"
 // The comparisons between two points and two lines could be computed in their
 // own function
@@ -1055,7 +1055,7 @@ Chessboard::augmentBestRun(std::vector<ChessboardQuadPtr>& candidateQuads, int c
     // kernel, which coresponds to the 4-neighborhood.
     const float thresh_dilation = (2*candidateDilation+3)*(2*existingDilation+3)*2;    // the "*2" is for the x and y component
 
-    // Search all old quads which have a neighbor that needs to be linked
+    // Search all old quads which have a_ neighbor that needs to be linked
     for (size_t idx = 0; idx < existingQuads.size(); ++idx)
     {
         ChessboardQuadPtr& curQuad = existingQuads.at(idx);
@@ -1075,7 +1075,7 @@ Chessboard::augmentBestRun(std::vector<ChessboardQuadPtr>& candidateQuads, int c
 
             cv::Point2f pt = curQuad->corners[i]->pt;
 
-            // Look for a match in all candidateQuads' corners
+            // Look for a_ match in all candidateQuads' corners
             for (size_t k = 0; k < candidateQuads.size(); ++k)
             {
                 ChessboardQuadPtr& candidateQuad = candidateQuads.at(k);
@@ -1107,7 +1107,7 @@ Chessboard::augmentBestRun(std::vector<ChessboardQuadPtr>& candidateQuads, int c
                 }
             }
 
-            // Have we found a matching corner point?
+            // Have we found a_ matching corner point?
             if (closestCornerIdx >= 0 && minDist < FLT_MAX)
             {
                 ChessboardCornerPtr closestCorner = closestQuad->corners[closestCornerIdx];
@@ -1124,7 +1124,7 @@ Chessboard::augmentBestRun(std::vector<ChessboardQuadPtr>& candidateQuads, int c
                 // being considered again during the next loop iteration
                 closestQuad->labeled = true;
 
-                // We have a new member of the final pattern, copy it over
+                // We have a_ new member of the final pattern, copy it over
                 ChessboardQuadPtr newQuad(new ChessboardQuad);
                 newQuad->count        = 1;
                 newQuad->edge_len    = closestQuad->edge_len;
@@ -1178,7 +1178,7 @@ Chessboard::generateQuads(std::vector<ChessboardQuadPtr>& quads,
 
     for (size_t i = 0; i < contours.size(); ++i)
     {
-        // Reject contours with a too small perimeter and contours which are
+        // Reject contours with a_ too small perimeter and contours which are
         // completely surrounded by another contour
         // MARTIN: If this function is called during PART 1, then the parameter "first run"
         // is set to "true". This guarantees, that only "nice" squares are detected.
@@ -1325,7 +1325,7 @@ Chessboard::checkQuadGroup(std::vector<ChessboardQuadPtr>& quads,
         }
     }
 
-    // If in a given direction the target pattern size is reached, we know exactly how
+    // If in a_ given direction the target pattern size is reached, we know exactly how
     // the checkerboard is oriented.
     // Else we need to prepare enough "dummy" corners for the worst case.
     for (size_t i = 0; i < quads.size(); ++i)
@@ -1650,7 +1650,7 @@ Chessboard::checkBoardMonotony(std::vector<ChessboardCornerPtr>& corners,
     splineYX.setLowBC(Spline::PARABOLIC_RUNOUT_BC);
     splineYX.setHighBC(Spline::PARABOLIC_RUNOUT_BC);
 
-    // check if each row of corners approximates a cubic spline
+    // check if each row of corners approximates a_ cubic spline
     for (int i = 0; i < patternSize.height; ++i)
     {
         splineXY.clear();
@@ -1705,7 +1705,7 @@ Chessboard::checkBoardMonotony(std::vector<ChessboardCornerPtr>& corners,
         }
     }
 
-    // check if each column of corners approximates a cubic spline
+    // check if each column of corners approximates a_ cubic spline
     for (int j = 0; j < patternSize.width; ++j)
     {
         splineXY.clear();
@@ -1874,7 +1874,7 @@ Chessboard::matchCorners(ChessboardQuadPtr& quad1, int corner1,
 
 
     // This time we also need to make shure, that no quad
-    // is linked to a quad of another dilation run which
+    // is linked to a_ quad of another dilation run which
     // may lie INSIDE it!!!
     // Third: Therefore check everything from the viewpoint
     // of the current quad compute midpoints of "parallel"
@@ -1893,7 +1893,7 @@ Chessboard::matchCorners(ChessboardQuadPtr& quad1, int corner1,
     // For corner2 of quad2 to be considered,
     // it needs to be on the other side of the two lines than
     // corner1. This is given, if the cross product has
-    // a different sign for both computations below:
+    // a_ different sign for both computations below:
     float a5 = x6 - x5;
     float b5 = y6 - y5;
     // the current corner
@@ -1934,7 +1934,7 @@ Chessboard::matchCorners(ChessboardQuadPtr& quad1, int corner1,
     // For corner2 of quad2 to be considered,
     // it needs to be on the other side of the two lines than
     // corner1. This is given, if the cross product has
-    // a different sign for both computations below:
+    // a_ different sign for both computations below:
     float a7 = u6 - u5;
     float b7 = v6 - v5;
     // the current corner

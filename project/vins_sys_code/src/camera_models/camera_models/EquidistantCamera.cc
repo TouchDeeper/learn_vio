@@ -432,7 +432,7 @@ EquidistantCamera::liftProjective(const Eigen::Vector2d& p, Eigen::Vector3d& P) 
     p_u << m_inv_K11 * p(0) + m_inv_K13,
            m_inv_K22 * p(1) + m_inv_K23;
 
-    // Obtain a projective ray
+    // Obtain a_ projective ray
     double theta, phi;
     backprojectSymmetric(p_u, theta, phi);
 
