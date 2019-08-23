@@ -494,15 +494,28 @@ void Problem::SolveLinearSystem() {
 
         // Hmm 是对角线矩阵，它的求逆可以直接为对角线块分别求逆，如果是逆深度，对角线块为1维的，则直接为对角线的倒数，这里可以加速
         MatXX Hmm_inv(MatXX::Zero(marg_size, marg_size));
+
         // TODO:: use openMP
         for (auto landmarkVertex : idx_landmark_vertices_) {
             int idx = landmarkVertex.second->OrderingId() - reserve_size;
             int size = landmarkVertex.second->LocalDimension();
-            Hmm_inv.block(idx, idx, size, size) = Hmm.block(idx, idx, size, size).inverse();
+            MatXX Hmm_DTD = Hmm.block(idx, idx, size, size);
+            if(OPTIMIZE_LM)
+            {
+                Hmm_DTD +=
+            }
+            Hmm_inv.block(idx, idx, size, size) = Hmm_DTD.inverse();
         }
 
+        MatXX Hpp_DTD = Hessian_.block(0, 0, ordering_poses_, ordering_poses_);
         MatXX tempH = Hpm * Hmm_inv;
-        H_pp_schur_ = Hessian_.block(0, 0, ordering_poses_, ordering_poses_) - tempH * Hmp;
+        if(OPTIMIZE_LM)
+        {
+            Hpp_DTD +=
+        }
+
+        H_pp_schur_ = Hpp_DTD - tempH * Hmp;
+
         b_pp_schur_ = bpp - tempH * bmm;
 
         // step2: solve Hpp * delta_x = bpp

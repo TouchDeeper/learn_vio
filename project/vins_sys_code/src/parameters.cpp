@@ -20,6 +20,7 @@ double stopThresholdGradient;
 vector <string> LOOP_PARAMETER;
 string NOW_LOOP = "";
 std::string SOLVER_TYPE;
+int OPTIMIZE_LM = 0;
 
 vector<Eigen::Matrix3d> RIC;
 vector<Eigen::Vector3d> TIC;
@@ -98,6 +99,7 @@ void readParameters(string config_file)
     HDL_CHOOSE = fsSettings["hdl_choose"];
     RADIUS_CHI_G_OUTPUT = fsSettings["radius_chi_g_output"];
     stopThresholdGradient = fsSettings["stopThresholdGradient"];
+    OPTIMIZE_LM = fsSettings["optimize_lm"];
     fsSettings["solver_type"] >> SOLVER_TYPE;
 
     if(!LOOP_PARAMETER.empty())
@@ -261,6 +263,7 @@ void readParameters(string config_file)
         <<  "\n  PUB_THIS_FRAME:"<<PUB_THIS_FRAME
         <<  "\n  stopThresholdGradient:"<<stopThresholdGradient
         <<  "\n  SOLVER_TYPE:"<<SOLVER_TYPE
+        <<  "\n  OPTIMIZE_LM :"<<OPTIMIZE_LM
     << endl;
 
 }

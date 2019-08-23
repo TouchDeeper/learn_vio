@@ -19,6 +19,7 @@ extern int RADIUS_CHI_G_OUTPUT; //是否输出dog-leg优化过程中的radius, c
 extern std::string sConfig_file;
 extern double stopThresholdGradient; // 迭代退出gradient阈值条件
 extern std::string SOLVER_TYPE; //选择solver type (LM, DOGLEG)
+extern int OPTIMIZE_LM;
 //feature tracker
 // extern int ROW;
 // extern int COL;
