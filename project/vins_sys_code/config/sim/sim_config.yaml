@@ -65,13 +65,15 @@ g_norm: 9.81007     # gravity magnitude
 
 verbose: １ #是否详细输出
 stop_reason: 1 #是否输出每次迭代的停止原因
-hdl_choose: 0 #是否输出hdl选择过程
+hdl_choose: 1 #是否输出hdl选择过程
 radius_chi_g_output: 0 #是否输出dog-leg优化过程中的radius, chi,g
-stopThresholdGradient: 1e-3 # ||g|| < stopThresholdLM
+stopThresholdGradient: 1e-3 # ||g|| < stopThresholdGradient
 #选择solver type (LM, DOGLEG)
 #solver_type: DOGLEG
 solver_type: LM
-optimize_lm: 1 #是否运行
+optimize_lm: 0 #是否运行优化的部分
+jacobian_scaling: 1 #是否进行jacobian_scaling
+DTD_scaling: 0 #是否将H+λI改成H+λDTD
 ## /16
 ##记得改回imu_pose_noise.txt
 ##imu parameters       The more accurate parameters you provide, the better performance

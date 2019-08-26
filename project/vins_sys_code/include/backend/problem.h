@@ -180,6 +180,7 @@ private:
     double alpha_;
     VecX a_;
 
+    Eigen::DiagonalMatrix<double, Eigen::Dynamic> jacobian_scaling_;
     double currentLambda_;
     double min_Lambda_;
     double current_region_raidus_;
@@ -191,7 +192,11 @@ private:
     SolverType solverType_;
     /// 整个信息矩阵
     MatXX Hessian_;
+    MatXX Hessian_backup;
+    MatXX Hessian_false;
     VecX b_;
+    VecX b_backup;
+    VecX b_false;
     VecX delta_x_;
 
     /// 先验部分信息

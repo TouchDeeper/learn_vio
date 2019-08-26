@@ -21,6 +21,8 @@ vector <string> LOOP_PARAMETER;
 string NOW_LOOP = "";
 std::string SOLVER_TYPE;
 int OPTIMIZE_LM = 0;
+int JACOBIAN_SCALING;
+int DTD_SCALING;
 
 vector<Eigen::Matrix3d> RIC;
 vector<Eigen::Vector3d> TIC;
@@ -101,6 +103,8 @@ void readParameters(string config_file)
     stopThresholdGradient = fsSettings["stopThresholdGradient"];
     OPTIMIZE_LM = fsSettings["optimize_lm"];
     fsSettings["solver_type"] >> SOLVER_TYPE;
+    JACOBIAN_SCALING = fsSettings["jacobian_scaling"];
+    DTD_SCALING = fsSettings["DTD_scaling"];
 
     if(!LOOP_PARAMETER.empty())
     {
@@ -264,6 +268,8 @@ void readParameters(string config_file)
         <<  "\n  stopThresholdGradient:"<<stopThresholdGradient
         <<  "\n  SOLVER_TYPE:"<<SOLVER_TYPE
         <<  "\n  OPTIMIZE_LM :"<<OPTIMIZE_LM
+        <<  "\n  jacobian_scaling :"<<JACOBIAN_SCALING
+        <<  "\n  DTD_scaling :"<<DTD_SCALING
     << endl;
 
 }

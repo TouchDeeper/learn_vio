@@ -20,6 +20,8 @@ extern std::string sConfig_file;
 extern double stopThresholdGradient; // 迭代退出gradient阈值条件
 extern std::string SOLVER_TYPE; //选择solver type (LM, DOGLEG)
 extern int OPTIMIZE_LM;
+extern int JACOBIAN_SCALING;
+extern int DTD_SCALING;
 //feature tracker
 // extern int ROW;
 // extern int COL;

@@ -57,17 +57,17 @@ void Edge::RobustInfo(double &drho, MatXX &info) const{
         double e2 = this->Chi2();
         Eigen::Vector3d rho;
         lossfunction_->Compute(e2,rho);
-        VecX weight_err = sqrt_information_ * residual_;
+        VecX weight_err = information_ * residual_;
 
         MatXX robust_info(information_.rows(), information_.cols());
         robust_info.setIdentity();
-        robust_info *= rho[1];
+        robust_info *= rho[1] * information_;
         if(rho[1] + 2 * rho[2] * e2 > 0.)
         {
             robust_info += 2 * rho[2] * weight_err * weight_err.transpose();
         }
 
-        info = robust_info * information_;
+        info = robust_info;
         drho = rho[1];
     }else
     {

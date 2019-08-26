@@ -244,7 +244,7 @@ bool Problem::Solve(int iterations) {
                     else
                         radius_out<<current_region_raidus_<<std::endl;
                     chi_out<<currentChi_<<std::endl;
-                    g_out<<b_.norm()<<std::endl;
+                    g_out<<b_backup.norm()<<std::endl;
                 }
             // 判断当前步是否可行以及 LM 的 lambda 怎么更新, chi2 也计算一下
             oneStepSuccess = IsGoodStep();
@@ -270,7 +270,7 @@ bool Problem::Solve(int iterations) {
                             std::cout << "stop reason: last_chi_ - currentChi_ < 1e-5" << std::endl;
                     stop = true;
                 }
-                //b_在MakeHessian()中更新了
+
                 if(b_.lpNorm<Eigen::Infinity>() < stopThresholdGradient){
                     if(VERBOSE)
                         if(STOP_REASON)
@@ -431,10 +431,11 @@ void Problem::MakeHessian() {
 
     if(H_prior_.rows() > 0)
     {
+        std::cout<<"add the H_prior_ to H"<<std::endl;
         MatXX H_prior_tmp = H_prior_;
         VecX b_prior_tmp = b_prior_;
 
-        /// 遍历所有 POSE 顶点，然后设置相应的先验维度为 0 .  fix 外参数, SET PRIOR TO ZERO
+        /// 遍历所有 POSE 顶点，对fix的顶点设置相应的先验信息为 0 .  fix 外参数, SET PRIOR TO ZERO
         /// landmark 没有先验
         for (auto vertex: verticies_) {
             if (IsPoseVertex(vertex.second) && vertex.second->IsFixed() ) {
@@ -450,6 +451,44 @@ void Problem::MakeHessian() {
         b_.head(ordering_poses_) += b_prior_tmp;
     }
 
+
+    if(JACOBIAN_SCALING)
+    {
+        double eps = 1e-8;
+        Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> saes2(Hessian_);
+        Eigen::VectorXd S = Eigen::VectorXd((saes2.eigenvalues().array() > eps).select(saes2.eigenvalues().array(), 0));
+        Eigen::VectorXd S_sqrt = S.cwiseSqrt();
+        MatXX J = S_sqrt.asDiagonal() * saes2.eigenvectors().transpose();
+        Hessian_ = J.transpose() * J;
+//        std::cout<<"the difference of Hessian"<<(Hessian_temp.inverse() * Hessian_).norm()<<std::endl;
+//        std::cout<<"Hessian_:"<<std::endl<<Hessian_<<std::endl;
+//        std::cout<<"JTJ"<<std::endl<<Hessian_temp<<std::endl;
+        //backup the hessian and b before scale
+        Hessian_backup = Hessian_;
+        b_backup = b_;
+//            std::cout<< "the difference norm of the hessian = " << (Hessian_.inverse() * Hessian_temp).norm()<<std::endl;
+        VecX jacobian_scaling_vec = (J.array().square()).colwise().sum();
+        jacobian_scaling_vec.array() = jacobian_scaling_vec.array().sqrt();
+        jacobian_scaling_vec.array() += 1;
+        jacobian_scaling_vec.array() = jacobian_scaling_vec.array().inverse();
+        jacobian_scaling_ = jacobian_scaling_vec.asDiagonal();
+//        std::cout<<"jacobi_scaling : \n"<<jacobian_scaling_.toDenseMatrix()<<std::endl;
+//        std::cout<<"before scaling, Hessian : "<<std::endl<<Hessian_<<std::endl;
+        Hessian_ = jacobian_scaling_ * Hessian_ * jacobian_scaling_;
+//        std::cout<<"after scaling, Hessian: "<<std::endl<<Hessian_<<std::endl;
+        //TODO 上面Hessian用J进行了重新计算，而b_没有重新计算,marginalize()这个函数也是
+//        std::cout<<"before scaling, b_ : \n"<<b_<<std::endl;
+        b_ = jacobian_scaling_ * b_;
+//        std::cout<<"after scaling, b_ : \n"<<b_<<std::endl;
+
+    } else{
+//        std::cout<<"Hessian_:\n"<<Hessian_<<std::endl;
+//        std::cout<<"b_ : \n"<<b_<<std::endl;
+    }
+
+
+
+
     delta_x_ = VecX::Zero(size);  // initial delta_x = 0_n;
 
 
@@ -463,9 +502,12 @@ void Problem::SolveLinearSystem() {
 
     if (problemType_ == ProblemType::GENERIC_PROBLEM) {
         MatXX H = Hessian_;
+//        std::cout<<"SolverLinearSystem, Hessian_ :\n"<<Hessian_<<std::endl;
         for (size_t i = 0; i < Hessian_.cols(); ++i) {
             H(i, i) += currentLambda_;
         }
+        if(b_.transpose() * H * b_ <0)
+            std::cerr<<"what a fuck, H is not semi-positive"<<std::endl;
         VecX hgn;
         hgn = H.ldlt().solve(b_);
 
@@ -473,7 +515,21 @@ void Problem::SolveLinearSystem() {
         {
             // PCG solver
             // delta_x_ = PCGSolver(H, b_, H.rows() * 2);
-            delta_x_ = hgn;
+
+            if(JACOBIAN_SCALING)
+            {
+                delta_x_ = jacobian_scaling_ * hgn;
+                b_false = b_;//一旦当前步无效，b_不会重新计算，所以对缩放后的b_进行备份
+                b_ = b_backup;//对b_进行解缩放
+                Hessian_false = Hessian_;//Hessian_同理
+                Hessian_ = Hessian_backup;
+            }
+            else{
+                delta_x_ = hgn;
+
+            }
+            std::cout<<"delta_x_ : \n"<<delta_x_<<std::endl;
+
         } else
         {
             //dog leg
@@ -489,32 +545,35 @@ void Problem::SolveLinearSystem() {
         MatXX Hmm = Hessian_.block(reserve_size, reserve_size, marg_size, marg_size);
         MatXX Hpm = Hessian_.block(0, reserve_size, reserve_size, marg_size);
         MatXX Hmp = Hessian_.block(reserve_size, 0, marg_size, reserve_size);
+        MatXX Hpp = Hessian_.block(0, 0, ordering_poses_, ordering_poses_);
         VecX bpp = b_.segment(0, reserve_size);
         VecX bmm = b_.segment(reserve_size, marg_size);
 
         // Hmm 是对角线矩阵，它的求逆可以直接为对角线块分别求逆，如果是逆深度，对角线块为1维的，则直接为对角线的倒数，这里可以加速
         MatXX Hmm_inv(MatXX::Zero(marg_size, marg_size));
+        MatXX DTD;
+        if(OPTIMIZE_LM){
+            if(DTD_SCALING)
+            {
+                VecX DTD_vec = Hessian_.colwise().sum();
+                DTD = DTD_vec.asDiagonal();
+                std::cout<<"DTD_vec:"<<DTD_vec.maxCoeff()<<std::endl;
+                Hmm += currentLambda_ * DTD.block(reserve_size, reserve_size, marg_size, marg_size);
+                Hpp += currentLambda_ * DTD.block(0, 0, ordering_poses_, ordering_poses_);
+            }
 
+        }
         // TODO:: use openMP
         for (auto landmarkVertex : idx_landmark_vertices_) {
             int idx = landmarkVertex.second->OrderingId() - reserve_size;
             int size = landmarkVertex.second->LocalDimension();
-            MatXX Hmm_DTD = Hmm.block(idx, idx, size, size);
-            if(OPTIMIZE_LM)
-            {
-                Hmm_DTD +=
-            }
-            Hmm_inv.block(idx, idx, size, size) = Hmm_DTD.inverse();
+            Hmm_inv.block(idx, idx, size, size) = Hmm.block(idx, idx, size, size).inverse();
         }
 
-        MatXX Hpp_DTD = Hessian_.block(0, 0, ordering_poses_, ordering_poses_);
+
         MatXX tempH = Hpm * Hmm_inv;
-        if(OPTIMIZE_LM)
-        {
-            Hpp_DTD +=
-        }
 
-        H_pp_schur_ = Hpp_DTD - tempH * Hmp;
+        H_pp_schur_ = Hpp - tempH * Hmp;
 
         b_pp_schur_ = bpp - tempH * bmm;
 
@@ -528,10 +587,19 @@ void Problem::SolveLinearSystem() {
 //            }
 //        }
 
-        //ceres 在dogleg算法里计算gauss newton step时也用了LM的方法
+//        ceres 在dogleg算法里计算gauss newton step时也用了LM的方法
+
+
         for (ulong i = 0; i < ordering_poses_; ++i){
             H_pp_schur_(i, i) += currentLambda_; // LM Method
         }
+
+//        if(OPTIMIZE_LM){
+//            VecX DTD_vec = Hessian_.colwise().sum();
+//            DTD = DTD_vec.asDiagonal();
+//            H_pp_schur_ += currentLambda_ * DTD.block(0, 0, ordering_poses_, ordering_poses_);
+//        }
+
 
         // TicToc t_linearsolver;
         VecX hgn(VecX::Zero(delta_x_.size()));
@@ -548,7 +616,18 @@ void Problem::SolveLinearSystem() {
 
         if(solverType_ == SolverType::LM)
         {
-            delta_x_ = hgn;
+
+            if(JACOBIAN_SCALING)
+            {
+                delta_x_ = jacobian_scaling_ * hgn;
+                b_false = b_;//一旦当前步无效，b_不会重新计算，所以对缩放后的b_进行备份
+                b_ = b_backup;//对b_进行解缩放
+                Hessian_false = Hessian_;
+                Hessian_ = Hessian_backup;
+
+            }
+            else
+                delta_x_ = hgn;
         }
         else
             ComputeDoglegStep(hgn);
@@ -578,6 +657,8 @@ void Problem::ComputeDoglegStep(const VecX hgn){
         {
             hsd_ = b_; //F's gradient
             alpha_ = hsd_.squaredNorm() / (hsd_.transpose() * Hessian_ * hsd_);
+            //TODO alpha都是0,为什么,检查计算过程中的数值问题
+            std::cout<<"alpha = "<<alpha_<<std::endl;
             a_ = alpha_ * hsd_;
         }
 
@@ -607,6 +688,8 @@ void Problem::ComputeDoglegStep(const VecX hgn){
             scale_ = 0.5 * alpha_ *pow((1 - beta),2) * hsd_.squaredNorm() + beta * (2 - beta) * currentChi_;
         }
     }
+    if(scale_ < 0)
+        std::cerr<<"what a fuck, no decent"<<std::endl;
 
 }
 
@@ -641,7 +724,15 @@ void Problem::UpdateStates() {
 }
 
 void Problem::RollbackStates() {
-    //TODO 检查下dog-leg 这里是否要改？
+
+    if(JACOBIAN_SCALING)
+    {
+        b_ = b_false;
+        Hessian_ = Hessian_false;
+//        std::cout<<"rollback b_: \n"<<b_<<std::endl;
+//        std::cout<<"rollback Hessian_ \n"<<Hessian_<<std::endl;
+    }
+
     // update vertex
     for (auto vertex: verticies_) {
         vertex.second->RollBackParameters();
@@ -664,7 +755,7 @@ void Problem::ComputeLambdaInit() {
         currentChi_ += edge.second->RobustChi2();
     }
     if (err_prior_.rows() > 0)
-        currentChi_ += err_prior_.norm();
+        currentChi_ += err_prior_.squaredNorm();
     currentChi_ *= 0.5;
 
 //    stopThresholdLM_ = 1e-10 * currentChi_;          // 迭代条件为 误差下降 1e-6 倍
@@ -677,13 +768,27 @@ void Problem::ComputeLambdaInit() {
     }
 
     maxDiagonal = std::min(5e10, maxDiagonal);
-    double tau = 1e-5;  // 1e-5
+    double tau;
+    if(JACOBIAN_SCALING)
+        tau = 1e-5;
+    else
+        tau = 1e-5;
     currentLambda_ = tau * maxDiagonal;
-    min_Lambda_ = currentLambda_;
-    current_region_raidus_ = 1 / currentLambda_;
+//    if(OPTIMIZE_LM)
+//    {
+//        currentLambda_ = 1e-4;
+//    }
+//    if(solverType_ == SolverType::DOG_LEG)
+//    {
+//        currentLambda_ = 1e-8;
+//    }
+    min_Lambda_ = 1e-8;
+    //TODO dogleg 的current_region_raidus_的初始值参考下ceres代码
+//    current_region_raidus_ = 1 / currentLambda_;
+    current_region_raidus_ = 1e2;
     reuse_ = false;
 
-    std::cout << "currentLamba_: "<<maxDiagonal<<" "<<currentLambda_<<std::endl;
+    std::cout << "maxDiagonal = "<<maxDiagonal<<"   "<<"currentLambda_ = "<<currentLambda_<<std::endl;
 }
 
 void Problem::AddLambdatoHessianLM() {
@@ -705,6 +810,7 @@ void Problem::RemoveLambdaHessianLM() {
 //LM or DOGLEG
 bool Problem::IsGoodStep() {
 
+
     // recompute residuals after update state
     double tempChi = 0.0;
     for (auto edge: edges_) {
@@ -712,7 +818,7 @@ bool Problem::IsGoodStep() {
         tempChi += edge.second->RobustChi2();
     }
     if (err_prior_.size() > 0)
-        tempChi += err_prior_.norm();
+        tempChi += err_prior_.squaredNorm();
     tempChi *= 0.5;          // 1/2 * err^2
 
     if(solverType_ == SolverType::LM)
@@ -720,8 +826,14 @@ bool Problem::IsGoodStep() {
         scale_ = 0;//使用之前置0
         //    scale = 0.5 * delta_x_.transpose() * (currentLambda_ * delta_x_ + b_);
 //    scale += 1e-3;    // make sure it's non-zero :)
-        scale_ = 0.5* delta_x_.transpose() * (currentLambda_ * delta_x_ + b_);
+//        std::cout<<"***********compute the scale"<<std::endl;
+        if(JACOBIAN_SCALING)//currentLambda_是在J被scale后计算的，到这里时b_和delta_x_都已经解缩放了，因此不能和currentLambda一起计算，所以不能用第二个公式
+            scale_ = -delta_x_.transpose() * (-b_ + 0.5 * Hessian_ * delta_x_);
+        else
+            scale_ = 0.5* delta_x_.transpose() * (currentLambda_ * delta_x_ + b_);
         scale_ += 1e-6;    // make sure it's non-zero :)
+//        std::cout<<"***********compute the scale done"<<std::endl;
+
     } else{
 //        scale_ = 0;
 //        auto scale_temp = b_.transpose() * delta_x_ - 0.5 * delta_x_.transpose() * Hessian_ * delta_x_;
@@ -769,9 +881,13 @@ bool Problem::IsGoodStep() {
 
         if(rho < 0 || !isfinite(tempChi))
         {
+            //LM Lambda update method
             currentLambda_ *= ni_;
+            ni_ *= 2;
+//           dogleg Lambda update method
+//            currentLambda_ *= ni_;
+
             current_region_raidus_ *= 0.5;
-//            ni_ *= 2;
             reuse_ = true;
             return false;
         }
@@ -786,7 +902,13 @@ bool Problem::IsGoodStep() {
             {
                 current_region_raidus_ = max(current_region_raidus_, 3 * delta_x_.norm());
             }
-            currentLambda_ = std::max(min_Lambda_, 2.0 * currentLambda_ / ni_);
+            //LM Lambda update method
+            double alpha = 1. - pow((2 * rho - 1), 3);
+            alpha = std::min(alpha, 2. / 3.);
+            double scaleFactor = (std::max)(1. / 3., alpha);
+            currentLambda_ *= scaleFactor;
+//            dog leg lambda update method
+//            currentLambda_ = std::max(min_Lambda_, 2.0 * currentLambda_ / ni_);
             currentChi_ = tempChi;
             reuse_ = false;
             return true;
@@ -908,6 +1030,8 @@ bool Problem::Marginalize(const std::vector<std::shared_ptr<Vertex> > margVertex
     }
         std::cout << "edge factor cnt: " << ii <<std::endl;
 
+
+
     /// marg landmark
     int reserve_size = pose_dim;
     if (marg_landmark_size > 0) {
@@ -947,7 +1071,6 @@ bool Problem::Marginalize(const std::vector<std::shared_ptr<Vertex> > margVertex
     // index 大的先移动
     for (int k = margVertexs.size() -1 ; k >= 0; --k)
     {
-
         int idx = margVertexs[k]->OrderingId();
         int dim = margVertexs[k]->LocalDimension();
 //        std::cout << k << " "<<idx << std::endl;
