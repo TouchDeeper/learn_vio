@@ -187,7 +187,7 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
             }
         }
     }
-
+    //TODO jacobian scaling 在初始化阶段误差较大
     if (solver_flag == INITIAL)
     {
         //frame_count是滑动窗口中图像帧的数量，一开始初始化为0，滑动窗口总帧数WINDOW_SIZE=10

@@ -8,6 +8,10 @@
 // #include <opencv2/core/eigen.hpp>
 #include <fstream>
 
+//#ifndef USE_OPENMP
+//#define USE_OPENMP 1
+//#endif
+
 extern int RUN_COUNT;
 extern int RUN_NUM;
 extern std::vector <std::string> LOOP_PARAMETER;
@@ -22,6 +26,9 @@ extern std::string SOLVER_TYPE; //选择solver type (LM, DOGLEG)
 extern int OPTIMIZE_LM;
 extern int JACOBIAN_SCALING;
 extern int DTD_SCALING;
+extern double T_HESSIAN_ALL;
+extern int NUM_MAKE_HESSIAN;
+
 //feature tracker
 // extern int ROW;
 // extern int COL;

@@ -155,6 +155,7 @@ void FeatureTracker::readImage(const cv::Mat &_img, double _cur_time)
         reduceVector(cur_un_pts, status);
         reduceVector(track_cnt, status);
         //ROS_DEBUG("temporal optical flow costs: %fms", t_o.toc());
+        printf("temporal optical flow costs: %fms", t_o.toc());
     }
     //光流追踪成功,特征点被成功跟踪的次数就加1
     //数值代表被追踪的次数，数值越大，说明被追踪的就越久

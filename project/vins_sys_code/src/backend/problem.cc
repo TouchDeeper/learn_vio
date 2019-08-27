@@ -6,6 +6,8 @@
 #include "utility/tic_toc.h"
 
 #include <opencv2/imgproc/imgproc.hpp>
+#include "parameters.h"
+
 #ifdef USE_OPENMP
 
 #include <omp.h>
@@ -301,6 +303,7 @@ bool Problem::Solve(int iterations) {
     if(VERBOSE)
         if(RADIUS_CHI_G_OUTPUT) {
             if (solverType_ == SolverType::LM)
+            if (solverType_ == SolverType::LM)
                 Lambda_out.close();
             else
                 radius_out.close();
@@ -309,7 +312,11 @@ bool Problem::Solve(int iterations) {
         }
     std::cout << "problem solve cost: " << t_solve.toc() << " ms" << std::endl;
     std::cout << "   makeHessian cost: " << t_hessian_cost_ << " ms" << std::endl;
-    std::cout << "   reuse save cost: " << t_reuse_cost_ << " ms" << std::endl;
+//    std::cout << "   reuse save cost: " << t_reuse_cost_ << " ms" << std::endl;
+
+    T_HESSIAN_ALL += t_hessian_cost_;
+    std::cout << "   makeHessian cost all: " << T_HESSIAN_ALL << " ms" << std::endl;
+
     t_hessian_cost_ = 0.;
     t_reuse_cost_ = 0 ;
     return true;
@@ -374,17 +381,22 @@ void Problem::MakeHessian() {
     VecX b(VecX::Zero(size));
 
     // TODO:: accelate, accelate, accelate
-//#ifdef USE_OPENMP
-//#pragma omp parallel for
-//#endif
-    for (auto &edge: edges_) {
+    std::vector<std::shared_ptr<Edge>> edges;
+    for (auto edge : edges_) {
+        edges.push_back(edge.second);
+    }
+////    std::cout<<"***** make hessian *******"<<std::endl;
+#ifdef USE_OPENMP
+#pragma omp parallel for
+#endif
+    for (int k = 0; k < edges.size(); ++k) {
 
-        edge.second->ComputeResidual();
-        edge.second->ComputeJacobians();
+        edges[k]->ComputeResidual();
+        edges[k]->ComputeJacobians();
 
         // TODO:: robust cost
-        auto jacobians = edge.second->Jacobians();
-        auto verticies = edge.second->Verticies();
+        auto jacobians = edges[k]->Jacobians();
+        auto verticies = edges[k]->Verticies();
         assert(jacobians.size() == verticies.size());
         for (size_t i = 0; i < verticies.size(); ++i) {
             auto v_i = verticies[i];
@@ -396,11 +408,11 @@ void Problem::MakeHessian() {
 
             // 鲁棒核函数会修改残差和信息矩阵，如果没有设置 robust cost function，就会返回原来的
             double drho;
-            MatXX robustInfo(edge.second->Information().rows(),edge.second->Information().cols());
-            edge.second->RobustInfo(drho,robustInfo);
+            MatXX robustInfo(edges[k]->Information().rows(),edges[k]->Information().cols());
+            edges[k]->RobustInfo(drho,robustInfo);
 
             MatXX JtW = jacobian_i.transpose() * robustInfo;
-            edge.second->jacobians_robust_.push_back(JtW);
+            edges[k]->jacobians_robust_.push_back(JtW);
             for (size_t j = i; j < verticies.size(); ++j) {
                 auto v_j = verticies[j];
 
@@ -414,24 +426,34 @@ void Problem::MakeHessian() {
                 MatXX hessian = JtW * jacobian_j;
 
                 // 所有的信息矩阵叠加起来
+#ifdef USE_OPENMP
+#pragma omp critical
+#endif
                 H.block(index_i, index_j, dim_i, dim_j).noalias() += hessian;
                 if (j != i) {
                     // 对称的下三角
+#ifdef USE_OPENMP
+#pragma omp critical
+#endif
                     H.block(index_j, index_i, dim_j, dim_i).noalias() += hessian.transpose();
 
                 }
             }
-            b.segment(index_i, dim_i).noalias() -= drho * jacobian_i.transpose()* edge.second->Information() * edge.second->Residual();
+#ifdef USE_OPENMP
+#pragma omp critical
+#endif
+            b.segment(index_i, dim_i).noalias() -= drho * jacobian_i.transpose()* edges[k]->Information() * edges[k]->Residual();
         }
 
     }
     Hessian_ = H;
     b_ = b;
     t_hessian_cost_ += t_h.toc();
+    NUM_MAKE_HESSIAN ++;
 
     if(H_prior_.rows() > 0)
     {
-        std::cout<<"add the H_prior_ to H"<<std::endl;
+//        std::cout<<"add the H_prior_ to H"<<std::endl;
         MatXX H_prior_tmp = H_prior_;
         VecX b_prior_tmp = b_prior_;
 
@@ -528,7 +550,7 @@ void Problem::SolveLinearSystem() {
                 delta_x_ = hgn;
 
             }
-            std::cout<<"delta_x_ : \n"<<delta_x_<<std::endl;
+//            std::cout<<"delta_x_ : \n"<<delta_x_<<std::endl;
 
         } else
         {

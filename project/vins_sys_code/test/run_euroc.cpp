@@ -88,6 +88,7 @@ void PubImageData()
 		usleep(50000*nDelayTimes);
 	}
 	fsImage.close();
+    pSystem->set_stop_flag();
 }
 
 int main(int argc, char **argv)
@@ -116,8 +117,8 @@ int main(int argc, char **argv)
 	thd_PubImuData.join();
 	thd_PubImageData.join();
 
-	// thd_BackEnd.join();
-	// thd_Draw.join();
+	thd_BackEnd.join();
+	thd_Draw.join();
 
 	cout << "main end... see you ..." << endl;
 	return 0;
