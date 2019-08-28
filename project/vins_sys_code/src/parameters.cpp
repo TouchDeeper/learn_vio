@@ -25,7 +25,7 @@ int JACOBIAN_SCALING;
 int DTD_SCALING;
 double T_HESSIAN_ALL ;
 int NUM_MAKE_HESSIAN ;
-
+int USE_OPENMP;
 
 vector<Eigen::Matrix3d> RIC;
 vector<Eigen::Vector3d> TIC;
@@ -108,6 +108,7 @@ void readParameters(string config_file)
     fsSettings["solver_type"] >> SOLVER_TYPE;
     JACOBIAN_SCALING = fsSettings["jacobian_scaling"];
     DTD_SCALING = fsSettings["DTD_scaling"];
+    USE_OPENMP = fsSettings["use_openmp"];
     T_HESSIAN_ALL = 0;
     NUM_MAKE_HESSIAN = 0;
 
@@ -275,7 +276,7 @@ void readParameters(string config_file)
         <<  "\n  OPTIMIZE_LM :"<<OPTIMIZE_LM
         <<  "\n  jacobian_scaling :"<<JACOBIAN_SCALING
         <<  "\n  DTD_scaling :"<<DTD_SCALING
-//        <<  "\n  USE_OPENMP :"<<USE_OPENMP
+        <<  "\n  USE_OPENMP :"<<USE_OPENMP
     << endl;
 
 }

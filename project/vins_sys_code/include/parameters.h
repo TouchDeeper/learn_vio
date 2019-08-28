@@ -28,7 +28,7 @@ extern int JACOBIAN_SCALING;
 extern int DTD_SCALING;
 extern double T_HESSIAN_ALL;
 extern int NUM_MAKE_HESSIAN;
-
+extern int USE_OPENMP;
 //feature tracker
 // extern int ROW;
 // extern int COL;

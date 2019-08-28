@@ -530,7 +530,6 @@ void System::ProcessBackEnd()
         m_estimator.unlock();
     }
 //    std::cout<< "average make hessian cost time = "<< T_HESSIAN_ALL/NUM_MAKE_HESSIAN<<std::endl;
-    std::cout<< "make hessian cost time = "<< T_HESSIAN_ALL<<std::endl;
 }
 
 void System::Draw() 

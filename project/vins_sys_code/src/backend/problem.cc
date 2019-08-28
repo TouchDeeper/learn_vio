@@ -181,7 +181,10 @@ bool Problem::Solve(int iterations) {
     // 统计优化变量的维数，为构建 H 矩阵做准备
     SetOrdering();
     // 遍历edge, 构建 H 矩阵
-    MakeHessian();
+    if(USE_OPENMP)
+        MultiThreadMakeHessian();
+    else
+        MakeHessian();
     // LM 初始化
     ComputeLambdaInit();
     // LM 算法迭代求解
@@ -256,7 +259,10 @@ bool Problem::Solve(int iterations) {
 
                 std::cout<<"||delta_x||= " << delta_x_.norm()<<std::endl;
                 // 在新线性化点 构建 hessian
-                MakeHessian();
+                if(USE_OPENMP)
+                    MultiThreadMakeHessian();
+                else
+                    MakeHessian();
                 // TODO:: 这个判断条件可以丢掉，条件 b_max <= 1e-12 很难达到，这里的阈值条件不应该用绝对值，而是相对值
 //                double b_max = 0.0;
 //                for (int i = 0; i < b_.size(); ++i) {
@@ -380,23 +386,17 @@ void Problem::MakeHessian() {
     MatXX H(MatXX::Zero(size, size));
     VecX b(VecX::Zero(size));
 
-    // TODO:: accelate, accelate, accelate
-    std::vector<std::shared_ptr<Edge>> edges;
-    for (auto edge : edges_) {
-        edges.push_back(edge.second);
-    }
-////    std::cout<<"***** make hessian *******"<<std::endl;
-#ifdef USE_OPENMP
-#pragma omp parallel for
-#endif
-    for (int k = 0; k < edges.size(); ++k) {
 
-        edges[k]->ComputeResidual();
-        edges[k]->ComputeJacobians();
+    // TODO:: accelate, accelate, accelate
+
+    for (auto &edge : edges_) {
+
+        edge.second->ComputeResidual();
+        edge.second->ComputeJacobians();
 
         // TODO:: robust cost
-        auto jacobians = edges[k]->Jacobians();
-        auto verticies = edges[k]->Verticies();
+        auto jacobians = edge.second->Jacobians();
+        auto verticies = edge.second->Verticies();
         assert(jacobians.size() == verticies.size());
         for (size_t i = 0; i < verticies.size(); ++i) {
             auto v_i = verticies[i];
@@ -408,11 +408,11 @@ void Problem::MakeHessian() {
 
             // 鲁棒核函数会修改残差和信息矩阵，如果没有设置 robust cost function，就会返回原来的
             double drho;
-            MatXX robustInfo(edges[k]->Information().rows(),edges[k]->Information().cols());
-            edges[k]->RobustInfo(drho,robustInfo);
+            MatXX robustInfo(edge.second->Information().rows(),edge.second->Information().cols());
+            edge.second->RobustInfo(drho,robustInfo);
 
             MatXX JtW = jacobian_i.transpose() * robustInfo;
-            edges[k]->jacobians_robust_.push_back(JtW);
+            edge.second->jacobians_robust_.push_back(JtW);
             for (size_t j = i; j < verticies.size(); ++j) {
                 auto v_j = verticies[j];
 
@@ -426,23 +426,14 @@ void Problem::MakeHessian() {
                 MatXX hessian = JtW * jacobian_j;
 
                 // 所有的信息矩阵叠加起来
-#ifdef USE_OPENMP
-#pragma omp critical
-#endif
                 H.block(index_i, index_j, dim_i, dim_j).noalias() += hessian;
                 if (j != i) {
                     // 对称的下三角
-#ifdef USE_OPENMP
-#pragma omp critical
-#endif
                     H.block(index_j, index_i, dim_j, dim_i).noalias() += hessian.transpose();
 
                 }
             }
-#ifdef USE_OPENMP
-#pragma omp critical
-#endif
-            b.segment(index_i, dim_i).noalias() -= drho * jacobian_i.transpose()* edges[k]->Information() * edges[k]->Residual();
+            b.segment(index_i, dim_i).noalias() -= drho * jacobian_i.transpose()* edge.second->Information() * edge.second->Residual();
         }
 
     }
@@ -515,7 +506,150 @@ void Problem::MakeHessian() {
 
 
 }
+void Problem::MultiThreadMakeHessian() {
+    TicToc t_h;
+    // 直接构造大的 H 矩阵
+    ulong size = ordering_generic_;
+    MatXX H(MatXX::Zero(size, size));
+    VecX b(VecX::Zero(size));
 
+
+    // TODO:: accelate, accelate, accelate
+    std::vector<std::shared_ptr<Edge>> edges;
+    for (auto edge : edges_) {
+        edges.push_back(edge.second);
+    }
+    int num_threads = 6;
+    std::vector<MatXX,Eigen::aligned_allocator<MatXX>> H_vec(num_threads,MatXX::Zero(size, size));
+    std::vector<VecX,Eigen::aligned_allocator<VecX>> b_vec(num_threads,VecX::Zero(size));
+
+////    std::cout<<"***** make hessian *******"<<std::endl;
+//    omp_set_num_threads(num_threads);
+#pragma omp parallel for
+    for (int k = 0; k < edges.size(); ++k) {
+
+        edges[k]->ComputeResidual();
+        edges[k]->ComputeJacobians();
+
+        // TODO:: robust cost
+        auto jacobians = edges[k]->Jacobians();
+        auto verticies = edges[k]->Verticies();
+        assert(jacobians.size() == verticies.size());
+        for (size_t i = 0; i < verticies.size(); ++i) {
+            auto v_i = verticies[i];
+            if (v_i->IsFixed()) continue;    // Hessian 里不需要添加它的信息，也就是它的雅克比为 0
+
+            auto jacobian_i = jacobians[i];
+            ulong index_i = v_i->OrderingId();
+            ulong dim_i = v_i->LocalDimension();
+
+            // 鲁棒核函数会修改残差和信息矩阵，如果没有设置 robust cost function，就会返回原来的
+            double drho;
+            MatXX robustInfo(edges[k]->Information().rows(),edges[k]->Information().cols());
+            edges[k]->RobustInfo(drho,robustInfo);
+
+            MatXX JtW = jacobian_i.transpose() * robustInfo;
+            edges[k]->jacobians_robust_.push_back(JtW);
+            for (size_t j = i; j < verticies.size(); ++j) {
+                auto v_j = verticies[j];
+
+                if (v_j->IsFixed()) continue;
+
+                auto jacobian_j = jacobians[j];
+                ulong index_j = v_j->OrderingId();
+                ulong dim_j = v_j->LocalDimension();
+
+                assert(v_j->OrderingId() != -1);
+                MatXX hessian = JtW * jacobian_j;
+
+                // 所有的信息矩阵叠加起来
+//#pragma omp critical
+                H_vec[omp_get_thread_num()].block(index_i, index_j, dim_i, dim_j).noalias() += hessian;
+                if (j != i) {
+                    // 对称的下三角
+//#pragma omp critical
+                    H_vec[omp_get_thread_num()].block(index_j, index_i, dim_j, dim_i).noalias() += hessian.transpose();
+
+                }
+            }
+//#pragma omp critical
+            b_vec[omp_get_thread_num()].segment(index_i, dim_i).noalias() -= drho * jacobian_i.transpose()* edges[k]->Information() * edges[k]->Residual();
+        }
+
+    }
+    for (int l = 0; l < num_threads; ++l) {
+        H += H_vec[l];
+        b += b_vec[l];
+    }
+    Hessian_ = H;
+    b_ = b;
+    t_hessian_cost_ += t_h.toc();
+    NUM_MAKE_HESSIAN ++;
+
+    if(H_prior_.rows() > 0)
+    {
+//        std::cout<<"add the H_prior_ to H"<<std::endl;
+        MatXX H_prior_tmp = H_prior_;
+        VecX b_prior_tmp = b_prior_;
+
+        /// 遍历所有 POSE 顶点，对fix的顶点设置相应的先验信息为 0 .  fix 外参数, SET PRIOR TO ZERO
+        /// landmark 没有先验
+        for (auto vertex: verticies_) {
+            if (IsPoseVertex(vertex.second) && vertex.second->IsFixed() ) {
+                int idx = vertex.second->OrderingId();
+                int dim = vertex.second->LocalDimension();
+                H_prior_tmp.block(idx,0, dim, H_prior_tmp.cols()).setZero();
+                H_prior_tmp.block(0,idx, H_prior_tmp.rows(), dim).setZero();
+                b_prior_tmp.segment(idx,dim).setZero();
+//                std::cout << " fixed prior, set the Hprior and bprior part to zero, idx: "<<idx <<" dim: "<<dim<<std::endl;
+            }
+        }
+        Hessian_.topLeftCorner(ordering_poses_, ordering_poses_) += H_prior_tmp;
+        b_.head(ordering_poses_) += b_prior_tmp;
+    }
+
+
+    if(JACOBIAN_SCALING)
+    {
+        double eps = 1e-8;
+        Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> saes2(Hessian_);
+        Eigen::VectorXd S = Eigen::VectorXd((saes2.eigenvalues().array() > eps).select(saes2.eigenvalues().array(), 0));
+        Eigen::VectorXd S_sqrt = S.cwiseSqrt();
+        MatXX J = S_sqrt.asDiagonal() * saes2.eigenvectors().transpose();
+        Hessian_ = J.transpose() * J;
+//        std::cout<<"the difference of Hessian"<<(Hessian_temp.inverse() * Hessian_).norm()<<std::endl;
+//        std::cout<<"Hessian_:"<<std::endl<<Hessian_<<std::endl;
+//        std::cout<<"JTJ"<<std::endl<<Hessian_temp<<std::endl;
+        //backup the hessian and b before scale
+        Hessian_backup = Hessian_;
+        b_backup = b_;
+//            std::cout<< "the difference norm of the hessian = " << (Hessian_.inverse() * Hessian_temp).norm()<<std::endl;
+        VecX jacobian_scaling_vec = (J.array().square()).colwise().sum();
+        jacobian_scaling_vec.array() = jacobian_scaling_vec.array().sqrt();
+        jacobian_scaling_vec.array() += 1;
+        jacobian_scaling_vec.array() = jacobian_scaling_vec.array().inverse();
+        jacobian_scaling_ = jacobian_scaling_vec.asDiagonal();
+//        std::cout<<"jacobi_scaling : \n"<<jacobian_scaling_.toDenseMatrix()<<std::endl;
+//        std::cout<<"before scaling, Hessian : "<<std::endl<<Hessian_<<std::endl;
+        Hessian_ = jacobian_scaling_ * Hessian_ * jacobian_scaling_;
+//        std::cout<<"after scaling, Hessian: "<<std::endl<<Hessian_<<std::endl;
+        //TODO 上面Hessian用J进行了重新计算，而b_没有重新计算,marginalize()这个函数也是
+//        std::cout<<"before scaling, b_ : \n"<<b_<<std::endl;
+        b_ = jacobian_scaling_ * b_;
+//        std::cout<<"after scaling, b_ : \n"<<b_<<std::endl;
+
+    } else{
+//        std::cout<<"Hessian_:\n"<<Hessian_<<std::endl;
+//        std::cout<<"b_ : \n"<<b_<<std::endl;
+    }
+
+
+
+
+    delta_x_ = VecX::Zero(size);  // initial delta_x = 0_n;
+
+
+}
 /*
  * Solve Hx = b, we can use PCG iterative method or use sparse Cholesky
  */
