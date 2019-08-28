@@ -521,10 +521,10 @@ void System::ProcessBackEnd()
                 ofs_pose << p_wi[0] <<" "
                          << p_wi[1] <<" "
                          << p_wi[2] <<" "
+                         << q_wi.w()<<" "
                          << q_wi.x()<<" "
                          << q_wi.y()<<" "
-                         << q_wi.z()<<" "
-                         << q_wi.w()<< endl;
+                         << q_wi.z()<< endl;
             }
         }
         m_estimator.unlock();
