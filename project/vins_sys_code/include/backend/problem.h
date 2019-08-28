@@ -102,7 +102,7 @@ public:
             ni_ = 2;
         } else
         {
-            ni_ = 2;//ceres中给的是10,但curve_fitting跑的结果是２比较快
+            ni_ = 10;//ceres中给的是10,但curve_fitting跑的结果是２比较快，但是跑slam设置１０比较好
         }
     }
 

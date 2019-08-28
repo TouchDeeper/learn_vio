@@ -74,6 +74,9 @@ System::~System()
     m_estimator.unlock();
 
     ofs_pose.close();
+
+    T_SOLVE_COST_ALL = 0;
+    T_HESSIAN_ALL = 0;
 }
 
 void System::PubImageData(double dStampSec, Mat &img)

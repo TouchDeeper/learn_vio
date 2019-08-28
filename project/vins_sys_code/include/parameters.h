@@ -27,8 +27,9 @@ extern int OPTIMIZE_LM;
 extern int JACOBIAN_SCALING;
 extern int DTD_SCALING;
 extern double T_HESSIAN_ALL;
+extern double T_SOLVE_COST_ALL;
 extern int NUM_MAKE_HESSIAN;
-extern int USE_OPENMP;
+extern int USE_OPENMP_THREADS;
 //feature tracker
 // extern int ROW;
 // extern int COL;

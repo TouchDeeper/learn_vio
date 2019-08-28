@@ -181,7 +181,7 @@ bool Problem::Solve(int iterations) {
     // 统计优化变量的维数，为构建 H 矩阵做准备
     SetOrdering();
     // 遍历edge, 构建 H 矩阵
-    if(USE_OPENMP)
+    if(USE_OPENMP_THREADS > 0)
         MultiThreadMakeHessian();
     else
         MakeHessian();
@@ -259,7 +259,7 @@ bool Problem::Solve(int iterations) {
 
                 std::cout<<"||delta_x||= " << delta_x_.norm()<<std::endl;
                 // 在新线性化点 构建 hessian
-                if(USE_OPENMP)
+                if(USE_OPENMP_THREADS > 0)
                     MultiThreadMakeHessian();
                 else
                     MakeHessian();
@@ -322,6 +322,8 @@ bool Problem::Solve(int iterations) {
 
     T_HESSIAN_ALL += t_hessian_cost_;
     std::cout << "   makeHessian cost all: " << T_HESSIAN_ALL << " ms" << std::endl;
+    T_SOLVE_COST_ALL += t_solve.toc();
+    std::cout << "   problem solve cost all: " << T_SOLVE_COST_ALL << " ms" << std::endl;
 
     t_hessian_cost_ = 0.;
     t_reuse_cost_ = 0 ;
@@ -519,12 +521,11 @@ void Problem::MultiThreadMakeHessian() {
     for (auto edge : edges_) {
         edges.push_back(edge.second);
     }
-    int num_threads = 2;
-    std::vector<MatXX,Eigen::aligned_allocator<MatXX>> H_vec(num_threads,MatXX::Zero(size, size));
-    std::vector<VecX,Eigen::aligned_allocator<VecX>> b_vec(num_threads,VecX::Zero(size));
 
-////    std::cout<<"***** make hessian *******"<<std::endl;
-    omp_set_num_threads(num_threads);
+    std::vector<MatXX,Eigen::aligned_allocator<MatXX>> H_vec(USE_OPENMP_THREADS,MatXX::Zero(size, size));
+    std::vector<VecX,Eigen::aligned_allocator<VecX>> b_vec(USE_OPENMP_THREADS,VecX::Zero(size));
+
+    omp_set_num_threads(USE_OPENMP_THREADS);
 #pragma omp parallel for
     for (int k = 0; k < edges.size(); ++k) {
 
@@ -563,21 +564,18 @@ void Problem::MultiThreadMakeHessian() {
                 MatXX hessian = JtW * jacobian_j;
 
                 // 所有的信息矩阵叠加起来
-//#pragma omp critical
                 H_vec[omp_get_thread_num()].block(index_i, index_j, dim_i, dim_j).noalias() += hessian;
                 if (j != i) {
                     // 对称的下三角
-//#pragma omp critical
                     H_vec[omp_get_thread_num()].block(index_j, index_i, dim_j, dim_i).noalias() += hessian.transpose();
 
                 }
             }
-//#pragma omp critical
             b_vec[omp_get_thread_num()].segment(index_i, dim_i).noalias() -= drho * jacobian_i.transpose()* edges[k]->Information() * edges[k]->Residual();
         }
 
     }
-    for (int l = 0; l < num_threads; ++l) {
+    for (int l = 0; l < USE_OPENMP_THREADS; ++l) {
         H += H_vec[l];
         b += b_vec[l];
     }
@@ -1038,10 +1036,10 @@ bool Problem::IsGoodStep() {
         if(rho < 0 || !isfinite(tempChi))
         {
             //LM Lambda update method
-            currentLambda_ *= ni_;
-            ni_ *= 2;
-//           dogleg Lambda update method
 //            currentLambda_ *= ni_;
+//            ni_ *= 2;
+//           dogleg Lambda update method
+            currentLambda_ *= ni_;
 
             current_region_raidus_ *= 0.5;
             reuse_ = true;
@@ -1059,12 +1057,12 @@ bool Problem::IsGoodStep() {
                 current_region_raidus_ = max(current_region_raidus_, 3 * delta_x_.norm());
             }
             //LM Lambda update method
-            double alpha = 1. - pow((2 * rho - 1), 3);
-            alpha = std::min(alpha, 2. / 3.);
-            double scaleFactor = (std::max)(1. / 3., alpha);
-            currentLambda_ *= scaleFactor;
+//            double alpha = 1. - pow((2 * rho - 1), 3);
+//            alpha = std::min(alpha, 2. / 3.);
+//            double scaleFactor = (std::max)(1. / 3., alpha);
+//            currentLambda_ *= scaleFactor;
 //            dog leg lambda update method
-//            currentLambda_ = std::max(min_Lambda_, 2.0 * currentLambda_ / ni_);
+            currentLambda_ = std::max(min_Lambda_, 2.0 * currentLambda_ / ni_);
             currentChi_ = tempChi;
             reuse_ = false;
             return true;
