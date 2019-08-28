@@ -519,12 +519,12 @@ void Problem::MultiThreadMakeHessian() {
     for (auto edge : edges_) {
         edges.push_back(edge.second);
     }
-    int num_threads = 6;
+    int num_threads = 2;
     std::vector<MatXX,Eigen::aligned_allocator<MatXX>> H_vec(num_threads,MatXX::Zero(size, size));
     std::vector<VecX,Eigen::aligned_allocator<VecX>> b_vec(num_threads,VecX::Zero(size));
 
 ////    std::cout<<"***** make hessian *******"<<std::endl;
-//    omp_set_num_threads(num_threads);
+    omp_set_num_threads(num_threads);
 #pragma omp parallel for
     for (int k = 0; k < edges.size(); ++k) {
 
