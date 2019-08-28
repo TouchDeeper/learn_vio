@@ -324,12 +324,13 @@ bool Problem::IsGoodStepInLM_NewUpdate() {
         edge.second->ComputeResidual();
         tempChi += edge.second->Chi2();
     }
-
-    auto af = -b_.transpose()*delta_x_/((currentChi_ - tempChi)/2 - 2 * b_.transpose() * delta_x_);
+    double frac = delta_x_.transpose() * b_; //因为是double,所以改成对其转置还是本身，原公式为-b_.transpose()*delta_x_
+    double af = frac/(((tempChi - currentChi_)/2) + 2 * frac);
 
     double scale = 0;
-
-    delta_x_ *= af[0];
+    RollbackStates();
+    delta_x_ *= af;
+    UpdateStates();
     //recompute residuals after new delta_x_
     tempChi = 0.0;
     for (auto edge: edges_) {
@@ -342,12 +343,12 @@ bool Problem::IsGoodStepInLM_NewUpdate() {
     double rho = (currentChi_ - tempChi) / scale;
     if (rho > 0 && isfinite(tempChi))   // last step was good, 误差在下降
     {
-        currentLambda_ = (std::max)(1e-7, currentLambda_ / (1 + af[0] ));
-        ni_ = 2;
+        currentLambda_ = std::max(1e-7, currentLambda_ / (1 + af ));
         currentChi_ = tempChi;
+        ni_ = 2;
         return true;
     } else {
-        currentLambda_ += (currentChi_ - tempChi) / ( 2 * af[0] );
+        currentLambda_ += abs(currentChi_ - tempChi) / ( 2. * af );
         return false;
     }
 }

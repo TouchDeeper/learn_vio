@@ -252,7 +252,15 @@ bool Problem::Solve(int iterations) {
                     g_out<<b_backup.norm()<<std::endl;
                 }
             // 判断当前步是否可行以及 LM 的 lambda 怎么更新, chi2 也计算一下
-            oneStepSuccess = IsGoodStep();
+            if(solverType_ == SolverType::LM)
+            {
+                if(NEW_LM_UPDATE)
+                    oneStepSuccess = IsGoodStepInLM_NewUpdate();
+                else
+                    oneStepSuccess = IsGoodStep();
+            } else
+                oneStepSuccess = IsGoodStep();
+
             // 后续处理，
             if (oneStepSuccess) {
 //                std::cout << " get one step success\n";
@@ -1072,6 +1080,45 @@ bool Problem::IsGoodStep() {
 
     }
 
+}
+
+bool Problem::IsGoodStepInLM_NewUpdate() {
+
+
+    // recompute residuals after update state
+    // 统计所有的残差
+    double tempChi = 0.0;
+    for (auto edge: edges_) {
+        edge.second->ComputeResidual();
+        tempChi += edge.second->Chi2();
+    }
+    double frac = delta_x_.transpose() * b_; //因为是double,所以改成对其转置还是本身，原公式为-b_.transpose()*delta_x_
+    double af = frac/(((tempChi - currentChi_)/2) + 2 * frac);
+
+    double scale = 0;
+    RollbackStates();
+    delta_x_ *= af;
+    UpdateStates();
+    //recompute residuals after new delta_x_
+    tempChi = 0.0;
+    for (auto edge: edges_) {
+        edge.second->ComputeResidual();
+        tempChi += edge.second->Chi2();
+    }
+
+    scale = delta_x_.transpose() * (currentLambda_ * delta_x_ + b_);//这里少了1/2是因为Chi2计算也省去了1/2,分子分母约掉了
+    scale += 1e-3;    // make sure it's non-zero :)
+    double rho = (currentChi_ - tempChi) / scale;
+    if (rho > 0 && isfinite(tempChi))   // last step was good, 误差在下降
+    {
+        currentLambda_ = std::max(1e-7, currentLambda_ / (1 + af ));
+        currentChi_ = tempChi;
+        ni_ = 2;
+        return true;
+    } else {
+        currentLambda_ += abs(currentChi_ - tempChi) / ( 2. * af );
+        return false;
+    }
 }
 
 /** @brief conjugate gradient with perconditioning

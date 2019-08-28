@@ -75,6 +75,8 @@ optimize_lm: 0 #是否运行优化的部分
 jacobian_scaling: 0 #是否进行jacobian_scaling
 DTD_scaling: 0 #是否将H+λI改成H+λDTD
 use_openmp_threads: 2  # the threads to use in openmp, if 0, will not use openmp
+new_lm_update: 1 # The new lm update strategy
+
 ## /16
 ##记得改回imu_pose_noise.txt
 ##imu parameters       The more accurate parameters you provide, the better performance

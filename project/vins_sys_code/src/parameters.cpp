@@ -27,6 +27,7 @@ double T_HESSIAN_ALL ;
 double T_SOLVE_COST_ALL ;
 int NUM_MAKE_HESSIAN ;
 int USE_OPENMP_THREADS;
+int NEW_LM_UPDATE;
 
 vector<Eigen::Matrix3d> RIC;
 vector<Eigen::Vector3d> TIC;
@@ -110,6 +111,7 @@ void readParameters(string config_file)
     JACOBIAN_SCALING = fsSettings["jacobian_scaling"];
     DTD_SCALING = fsSettings["DTD_scaling"];
     USE_OPENMP_THREADS = fsSettings["use_openmp_threads"];
+    NEW_LM_UPDATE = fsSettings["new_lm_update"];
     T_HESSIAN_ALL = 0;
     NUM_MAKE_HESSIAN = 0;
 
@@ -278,6 +280,7 @@ void readParameters(string config_file)
         <<  "\n  jacobian_scaling :"<<JACOBIAN_SCALING
         <<  "\n  DTD_scaling :"<<DTD_SCALING
         <<  "\n  USE OPENMP THREADS :"<<USE_OPENMP_THREADS
+        <<  "\n  NEW LM UPDATE STRATEGY: :"<<NEW_LM_UPDATE
     << endl;
 
 }
