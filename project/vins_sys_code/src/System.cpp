@@ -515,9 +515,9 @@ void System::ProcessBackEnd()
                 double dStamp = estimator.Headers[WINDOW_SIZE];
                 cout << "1 BackEnd processImage dt: " << fixed << t_processImage.toc() << " stamp: " <<  dStamp << " p_wi: " << p_wi.transpose() << endl;
                 //save as tum format
-                ofs_pose.precision(9);
+//                ofs_pose.precision(9);
                 ofs_pose << dStamp << " ";
-                ofs_pose.precision(5);
+//                ofs_pose.precision(5);
                 ofs_pose << p_wi[0] <<" "
                          << p_wi[1] <<" "
                          << p_wi[2] <<" "
