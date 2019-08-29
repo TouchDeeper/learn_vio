@@ -36,6 +36,7 @@ Problem::Problem(ProblemType problemType) :
     problemType_(problemType) {
     LogoutVectorSize();
     verticies_marg_.clear();
+    reuse_DTD_ = false;
 }
 
 Problem::~Problem() {
@@ -241,7 +242,9 @@ bool Problem::Solve(int iterations) {
 
             // 更新状态量
             UpdateStates();
+
             if(VERBOSE)
+            {
                 if(RADIUS_CHI_G_OUTPUT)
                 {
                     if(solverType_ == SolverType::LM)
@@ -251,6 +254,10 @@ bool Problem::Solve(int iterations) {
                     chi_out<<currentChi_<<std::endl;
                     g_out<<b_backup.norm()<<std::endl;
                 }
+
+            }
+
+
             // 判断当前步是否可行以及 LM 的 lambda 怎么更新, chi2 也计算一下
             if(solverType_ == SolverType::LM)
             {
@@ -260,12 +267,22 @@ bool Problem::Solve(int iterations) {
                     oneStepSuccess = IsGoodStep();
             } else
                 oneStepSuccess = IsGoodStep();
+            if(VERBOSE)
+            {
+                if(SHOW_LAMBDA)
+                {
+                    if(oneStepSuccess)
+                        std::cout<<"step valid, currentLambda_ = "<<currentLambda_<<"    ||delta_x||= " << delta_x_.norm()<<std::endl;
+                    else
+                        std::cout<<"rollback, currentLambda_ = "<<currentLambda_<<"    ||delta_x||= " << delta_x_.norm()<<std::endl;
+
+                }
+            }
 
             // 后续处理，
             if (oneStepSuccess) {
 //                std::cout << " get one step success\n";
 
-                std::cout<<"||delta_x||= " << delta_x_.norm()<<std::endl;
                 // 在新线性化点 构建 hessian
                 if(USE_OPENMP_THREADS > 0)
                     MultiThreadMakeHessian();
@@ -295,7 +312,6 @@ bool Problem::Solve(int iterations) {
                 }
                 false_cnt = 0;
             } else {
-                std::cout<<"rollback, currntLambda_ = "<<currentLambda_<<std::endl;
                 false_cnt ++;
                 RollbackStates();   // 误差没下降，回滚
             }
@@ -477,38 +493,12 @@ void Problem::MakeHessian() {
 
 
     if(JACOBIAN_SCALING)
-    {
-        double eps = 1e-8;
-        Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> saes2(Hessian_);
-        Eigen::VectorXd S = Eigen::VectorXd((saes2.eigenvalues().array() > eps).select(saes2.eigenvalues().array(), 0));
-        Eigen::VectorXd S_sqrt = S.cwiseSqrt();
-        MatXX J = S_sqrt.asDiagonal() * saes2.eigenvectors().transpose();
-        Hessian_ = J.transpose() * J;
-//        std::cout<<"the difference of Hessian"<<(Hessian_temp.inverse() * Hessian_).norm()<<std::endl;
-//        std::cout<<"Hessian_:"<<std::endl<<Hessian_<<std::endl;
-//        std::cout<<"JTJ"<<std::endl<<Hessian_temp<<std::endl;
-        //backup the hessian and b before scale
-        Hessian_backup = Hessian_;
-        b_backup = b_;
-//            std::cout<< "the difference norm of the hessian = " << (Hessian_.inverse() * Hessian_temp).norm()<<std::endl;
-        VecX jacobian_scaling_vec = (J.array().square()).colwise().sum();
-        jacobian_scaling_vec.array() = jacobian_scaling_vec.array().sqrt();
-        jacobian_scaling_vec.array() += 1;
-        jacobian_scaling_vec.array() = jacobian_scaling_vec.array().inverse();
-        jacobian_scaling_ = jacobian_scaling_vec.asDiagonal();
-//        std::cout<<"jacobi_scaling : \n"<<jacobian_scaling_.toDenseMatrix()<<std::endl;
-//        std::cout<<"before scaling, Hessian : "<<std::endl<<Hessian_<<std::endl;
-        Hessian_ = jacobian_scaling_ * Hessian_ * jacobian_scaling_;
-//        std::cout<<"after scaling, Hessian: "<<std::endl<<Hessian_<<std::endl;
-        //TODO 上面Hessian用J进行了重新计算，而b_没有重新计算,marginalize()这个函数也是
-//        std::cout<<"before scaling, b_ : \n"<<b_<<std::endl;
-        b_ = jacobian_scaling_ * b_;
-//        std::cout<<"after scaling, b_ : \n"<<b_<<std::endl;
+        JacobianScaling();
 
-    } else{
+//    else{
 //        std::cout<<"Hessian_:\n"<<Hessian_<<std::endl;
 //        std::cout<<"b_ : \n"<<b_<<std::endl;
-    }
+//    }
 
 
 
@@ -617,13 +607,29 @@ void Problem::MultiThreadMakeHessian() {
 
 
     if(JACOBIAN_SCALING)
-    {
-        double eps = 1e-8;
-        Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> saes2(Hessian_);
-        Eigen::VectorXd S = Eigen::VectorXd((saes2.eigenvalues().array() > eps).select(saes2.eigenvalues().array(), 0));
-        Eigen::VectorXd S_sqrt = S.cwiseSqrt();
-        MatXX J = S_sqrt.asDiagonal() * saes2.eigenvectors().transpose();
-        Hessian_ = J.transpose() * J;
+        JacobianScaling();
+//    else{
+//        std::cout<<"Hessian_:\n"<<Hessian_<<std::endl;
+//        std::cout<<"b_ : \n"<<b_<<std::endl;
+//    }
+
+
+
+
+    delta_x_ = VecX::Zero(size);  // initial delta_x = 0_n;
+
+
+}
+/**
+ *  J = JD^-1, H = D^-1 H D^-1, b = D^-1 b, delta_x = D*delta_x
+ */
+void Problem::JacobianScaling(){
+        //        double eps = 1e-8;
+//        Eigen::SelfAdjointEigenSolver<Eigen::MatrixXd> saes2(Hessian_);
+//        Eigen::VectorXd S = Eigen::VectorXd((saes2.eigenvalues().array() > eps).select(saes2.eigenvalues().array(), 0));
+//        Eigen::VectorXd S_sqrt = S.cwiseSqrt();
+//        MatXX J = S_sqrt.asDiagonal() * saes2.eigenvectors().transpose();
+//        Hessian_ = J.transpose() * J;
 //        std::cout<<"the difference of Hessian"<<(Hessian_temp.inverse() * Hessian_).norm()<<std::endl;
 //        std::cout<<"Hessian_:"<<std::endl<<Hessian_<<std::endl;
 //        std::cout<<"JTJ"<<std::endl<<Hessian_temp<<std::endl;
@@ -631,10 +637,17 @@ void Problem::MultiThreadMakeHessian() {
         Hessian_backup = Hessian_;
         b_backup = b_;
 //            std::cout<< "the difference norm of the hessian = " << (Hessian_.inverse() * Hessian_temp).norm()<<std::endl;
-        VecX jacobian_scaling_vec = (J.array().square()).colwise().sum();
-        jacobian_scaling_vec.array() = jacobian_scaling_vec.array().sqrt();
+        MatXX H = Hessian_;
+        VecX jacobian_scaling_vec = H.diagonal();
+        //TODO use openMp
+        for (int i = 0; i < jacobian_scaling_vec.size(); ++i) {
+            jacobian_scaling_vec(i) = std::min(std::max(jacobian_scaling_vec(i), min_diagonal_),
+                                               max_diagonal_);
+        }
+
+        jacobian_scaling_vec = jacobian_scaling_vec.array().sqrt();
         jacobian_scaling_vec.array() += 1;
-        jacobian_scaling_vec.array() = jacobian_scaling_vec.array().inverse();
+        jacobian_scaling_vec = jacobian_scaling_vec.array().inverse();
         jacobian_scaling_ = jacobian_scaling_vec.asDiagonal();
 //        std::cout<<"jacobi_scaling : \n"<<jacobian_scaling_.toDenseMatrix()<<std::endl;
 //        std::cout<<"before scaling, Hessian : "<<std::endl<<Hessian_<<std::endl;
@@ -644,18 +657,6 @@ void Problem::MultiThreadMakeHessian() {
 //        std::cout<<"before scaling, b_ : \n"<<b_<<std::endl;
         b_ = jacobian_scaling_ * b_;
 //        std::cout<<"after scaling, b_ : \n"<<b_<<std::endl;
-
-    } else{
-//        std::cout<<"Hessian_:\n"<<Hessian_<<std::endl;
-//        std::cout<<"b_ : \n"<<b_<<std::endl;
-    }
-
-
-
-
-    delta_x_ = VecX::Zero(size);  // initial delta_x = 0_n;
-
-
 }
 /*
  * Solve Hx = b, we can use PCG iterative method or use sparse Cholesky
@@ -718,11 +719,20 @@ void Problem::SolveLinearSystem() {
         if(OPTIMIZE_LM){
             if(DTD_SCALING)
             {
-                VecX DTD_vec = Hessian_.colwise().sum();
-                DTD = DTD_vec.asDiagonal();
-                std::cout<<"DTD_vec:"<<DTD_vec.maxCoeff()<<std::endl;
-                Hmm += currentLambda_ * DTD.block(reserve_size, reserve_size, marg_size, marg_size);
-                Hpp += currentLambda_ * DTD.block(0, 0, ordering_poses_, ordering_poses_);
+                if(!reuse_DTD_)
+                {
+                    auto DTD_vec = Hessian_.diagonal();
+                    //TODO use openMp
+                    for (int i = 0; i < DTD_vec.size(); ++i) {
+                        DTD_vec(i) = std::min(std::max(DTD_vec(i), min_diagonal_),
+                                              max_diagonal_);
+                    }
+                    DTD_Hmm_ = DTD_vec.segment(reserve_size, marg_size).asDiagonal();
+                    DTD_Hpp_ = DTD_vec.segment(0, reserve_size).asDiagonal();
+
+                }
+                Hmm += currentLambda_ * DTD_Hmm_;
+                Hpp += currentLambda_ * DTD_Hpp_;
             }
 
         }
@@ -752,10 +762,17 @@ void Problem::SolveLinearSystem() {
 
 //        ceres 在dogleg算法里计算gauss newton step时也用了LM的方法
 
+        if(OPTIMIZE_LM){
+            if(DTD_SCALING)
+            {
 
-        for (ulong i = 0; i < ordering_poses_; ++i){
-            H_pp_schur_(i, i) += currentLambda_; // LM Method
+            }
+        } else{
+            for (ulong i = 0; i < ordering_poses_; ++i){
+                H_pp_schur_(i, i) += currentLambda_; // LM Method
+            }
         }
+
 
 //        if(OPTIMIZE_LM){
 //            VecX DTD_vec = Hessian_.colwise().sum();

@@ -28,6 +28,7 @@ double T_SOLVE_COST_ALL ;
 int NUM_MAKE_HESSIAN ;
 int USE_OPENMP_THREADS;
 int NEW_LM_UPDATE;
+int SHOW_LAMBDA;
 
 vector<Eigen::Matrix3d> RIC;
 vector<Eigen::Vector3d> TIC;
@@ -112,6 +113,8 @@ void readParameters(string config_file)
     DTD_SCALING = fsSettings["DTD_scaling"];
     USE_OPENMP_THREADS = fsSettings["use_openmp_threads"];
     NEW_LM_UPDATE = fsSettings["new_lm_update"];
+    SHOW_LAMBDA = fsSettings["show_lambda"];
+
     T_HESSIAN_ALL = 0;
     NUM_MAKE_HESSIAN = 0;
 

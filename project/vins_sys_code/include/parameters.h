@@ -31,6 +31,7 @@ extern double T_SOLVE_COST_ALL;
 extern int NUM_MAKE_HESSIAN;
 extern int USE_OPENMP_THREADS;
 extern int NEW_LM_UPDATE;
+extern int SHOW_LAMBDA;
 //feature tracker
 // extern int ROW;
 // extern int COL;

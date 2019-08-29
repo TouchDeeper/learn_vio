@@ -123,6 +123,7 @@ private:
     /// 构造大H矩阵
     void MakeHessian();
     void MultiThreadMakeHessian();
+    void JacobianScaling();
 
     /// schur求解SBA
     void SchurSBA();
@@ -180,8 +181,12 @@ private:
     VecX hsd_;
     double alpha_;
     VecX a_;
-
+    double min_diagonal_ = 1e-6;
+    double max_diagonal_ = 1e32;
+    bool reuse_DTD_;
     Eigen::DiagonalMatrix<double, Eigen::Dynamic> jacobian_scaling_;
+    Eigen::DiagonalMatrix<double, Eigen::Dynamic> DTD_Hmm_;
+    Eigen::DiagonalMatrix<double, Eigen::Dynamic> DTD_Hpp_;
     double currentLambda_;
     double min_Lambda_;
     double current_region_raidus_;
