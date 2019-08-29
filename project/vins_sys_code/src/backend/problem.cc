@@ -295,6 +295,7 @@ bool Problem::Solve(int iterations) {
                 }
                 false_cnt = 0;
             } else {
+                std::cout<<"rollback, currntLambda_ = "<<currentLambda_<<std::endl;
                 false_cnt ++;
                 RollbackStates();   // 误差没下降，回滚
             }
@@ -873,7 +874,7 @@ void Problem::UpdateStates() {
         // BACK UP b_prior_
         b_prior_backup_ = b_prior_;
         err_prior_backup_ = err_prior_;
-
+        //TODO 这里是什么原理
         /// update with first order Taylor, b' = b + \frac{\delta b}{\delta x} * \delta x
         /// \delta x = Computes the linearized deviation from the references (linearization points)
         b_prior_ -= H_prior_ * delta_x_.head(ordering_poses_);       // update the error_prior
@@ -914,7 +915,7 @@ void Problem::ComputeLambdaInit() {
     currentChi_ = 0.0;
 
     for (auto edge: edges_) {
-        currentChi_ += edge.second->RobustChi2();
+        currentChi_ += edge.second->RobustChi2();//所使用的residual已经在makeHessian进行ComputeResidual过了
     }
     if (err_prior_.rows() > 0)
         currentChi_ += err_prior_.squaredNorm();
@@ -1090,24 +1091,39 @@ bool Problem::IsGoodStepInLM_NewUpdate() {
     double tempChi = 0.0;
     for (auto edge: edges_) {
         edge.second->ComputeResidual();
-        tempChi += edge.second->Chi2();
+        tempChi += edge.second->RobustChi2();
     }
-    double frac = delta_x_.transpose() * b_; //因为是double,所以改成对其转置还是本身，原公式为-b_.transpose()*delta_x_
-    double af = frac/(((tempChi - currentChi_)/2) + 2 * frac);
+    if (err_prior_.size() > 0)
+    {
+        tempChi += err_prior_.squaredNorm();
+//        std::cout<<"err_prior_"<<err_prior_.norm()<<std::endl;
+    }
 
+    tempChi *= 0.5;//在ComputeLamvbdaInit中currentChi_也乘了0.5
+
+    double frac = -delta_x_ .transpose() * b_; //因为是double,所以改成对其转置还是本身，原公式为-b_.transpose()*delta_x_
+//    std::cout<<"delta_x_ :\n"<<delta_x_<<std::endl;
+//    std::cout<<"||delta_x_|| = "<<delta_x_.norm()<<"   ||b_|| = "<<b_.norm()<<std::endl;
+    double af = frac / ((0.5 * (tempChi - currentChi_)) + 2. * frac);
+//    std::cout<<"frac = "<<frac<<"   af = "<<af<<"   tempChi = "<<tempChi<<"   currentChi_ = "<<currentChi_<<std::endl;
     double scale = 0;
     RollbackStates();
     delta_x_ *= af;
+
     UpdateStates();
     //recompute residuals after new delta_x_
     tempChi = 0.0;
     for (auto edge: edges_) {
         edge.second->ComputeResidual();
-        tempChi += edge.second->Chi2();
+        tempChi += edge.second->RobustChi2();
     }
+    if (err_prior_.size() > 0)
+        tempChi += err_prior_.squaredNorm();
+    tempChi *= 0.5;
 
-    scale = delta_x_.transpose() * (currentLambda_ * delta_x_ + b_);//这里少了1/2是因为Chi2计算也省去了1/2,分子分母约掉了
-    scale += 1e-3;    // make sure it's non-zero :)
+//    std::cout<<"new ||delta_x_|| = "<<delta_x_.norm()<<"   new tempChi = "<<tempChi<<std::endl;
+    scale = 0.5 * delta_x_.transpose() * (currentLambda_ * delta_x_ + b_);
+    scale += 1e-6;    // make sure it's non-zero :)
     double rho = (currentChi_ - tempChi) / scale;
     if (rho > 0 && isfinite(tempChi))   // last step was good, 误差在下降
     {
@@ -1119,6 +1135,7 @@ bool Problem::IsGoodStepInLM_NewUpdate() {
         currentLambda_ += abs(currentChi_ - tempChi) / ( 2. * af );
         return false;
     }
+
 }
 
 /** @brief conjugate gradient with perconditioning

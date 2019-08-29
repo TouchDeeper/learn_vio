@@ -2,6 +2,7 @@
 #include <random>
 #include "backend/problem.h"
 #include "parameters.h"
+#include "backend/loss_function.h"
 using namespace myslam::backend;
 using namespace std;
 
@@ -57,6 +58,9 @@ int main()
     std::default_random_engine generator;
     std::normal_distribution<double> noise(0.,w_sigma);
 
+    myslam::backend::LossFunction *lossfunction;
+    lossfunction = new myslam::backend::CauchyLoss(1.0);
+
     // 构建 problem
     Problem problem(Problem::ProblemType::GENERIC_PROBLEM);
     shared_ptr< CurveFittingVertex > vertex(new CurveFittingVertex());
@@ -80,10 +84,11 @@ int main()
         std::vector<std::shared_ptr<Vertex>> edge_vertex;
         edge_vertex.push_back(vertex);
         edge->SetVertex(edge_vertex);
-
+//        edge->SetLossFunction(lossfunction);
         // 把这个残差添加到最小二乘问题
         problem.AddEdge(edge);
     }
+
 
     std::cout<<"\nTest CurveFitting start..."<<std::endl;
     /// 使用 LM 求解

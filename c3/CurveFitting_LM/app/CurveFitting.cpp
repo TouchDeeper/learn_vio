@@ -52,7 +52,7 @@ public:
 int main()
 {
     double a=1.0, b=2.0, c=1.0;         // 真实参数值
-    int N = 10000;                          // 数据点
+    int N = 1000;                          // 数据点
     double w_sigma= 1.;                 // 噪声Sigma值
 
     std::default_random_engine generator;

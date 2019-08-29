@@ -325,7 +325,10 @@ bool Problem::IsGoodStepInLM_NewUpdate() {
         tempChi += edge.second->Chi2();
     }
     double frac = delta_x_.transpose() * b_; //因为是double,所以改成对其转置还是本身，原公式为-b_.transpose()*delta_x_
+    std::cout<<"||delta_x_|| = "<<delta_x_.norm()<<"   ||b_|| = "<<b_.norm()<<std::endl;
+
     double af = frac/(((tempChi - currentChi_)/2) + 2 * frac);
+    std::cout<<"frac = "<<frac<<"   af = "<<af<<"   tempChi = "<<tempChi<<"   currentChi_ = "<<currentChi_<<std::endl;
 
     double scale = 0;
     RollbackStates();
@@ -337,6 +340,7 @@ bool Problem::IsGoodStepInLM_NewUpdate() {
         edge.second->ComputeResidual();
         tempChi += edge.second->Chi2();
     }
+    std::cout<<"new ||delta_x_|| = "<<delta_x_.norm()<<"   new tempChi = "<<tempChi<<std::endl;
 
     scale = delta_x_.transpose() * (currentLambda_ * delta_x_ + b_);//这里少了1/2是因为Chi2计算也省去了1/2,分子分母约掉了
     scale += 1e-3;    // make sure it's non-zero :)
