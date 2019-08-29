@@ -176,7 +176,7 @@ private:
 //    double alpha_; //a_ = alpha_ * hsd_
 //    int hdl_type_; //1对应hdl=hgn, 2对应hdl = -delta * g / ||g||, 3其他
     double scale_; //L(0) - L(hdl)
-    bool reuse_ = false;
+    bool reuse_a_ = false;
     double t_reuse_cost_ = 0;
     VecX hsd_;
     double alpha_;

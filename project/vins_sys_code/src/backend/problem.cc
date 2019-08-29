@@ -37,6 +37,7 @@ Problem::Problem(ProblemType problemType) :
     LogoutVectorSize();
     verticies_marg_.clear();
     reuse_DTD_ = false;
+    reuse_a_ = false;
 }
 
 Problem::~Problem() {
@@ -833,7 +834,7 @@ void Problem::ComputeDoglegStep(const VecX hgn){
     }
     else{
         // compute gradient decent step
-        if(!reuse_ || hsd_.size()<1)//加上第二个判断条件是因为第一次如果是case1然后又失效的话，hsd此时无值，reuse_又等于true
+        if(!reuse_a_ || hsd_.size()<1)//加上第二个判断条件是因为第一次如果是case1然后又失效的话，hsd此时无值，reuse_又等于true
         {
             hsd_ = b_; //F's gradient
             alpha_ = hsd_.squaredNorm() / (hsd_.transpose() * Hessian_ * hsd_);
@@ -966,7 +967,7 @@ void Problem::ComputeLambdaInit() {
     //TODO dogleg 的current_region_raidus_的初始值参考下ceres代码
 //    current_region_raidus_ = 1 / currentLambda_;
     current_region_raidus_ = 1e2;
-    reuse_ = false;
+
 
     std::cout << "maxDiagonal = "<<maxDiagonal<<"   "<<"currentLambda_ = "<<currentLambda_<<std::endl;
 }
@@ -1034,10 +1035,12 @@ bool Problem::IsGoodStep() {
             currentLambda_ *= scaleFactor;
             ni_ = 2;
             currentChi_ = tempChi;
+            reuse_DTD_ = false;
             return true;
         } else {
             currentLambda_ *= ni_;
             ni_ *= 2;
+            reuse_DTD_ = true;
             return false;
         }
     } else{
@@ -1068,11 +1071,10 @@ bool Problem::IsGoodStep() {
             currentLambda_ *= ni_;
 
             current_region_raidus_ *= 0.5;
-            reuse_ = true;
+            reuse_a_ = true;
+            reuse_DTD_ = true;
             return false;
-        }
-
-        else
+        }else
         {
             if(rho < 0.25)
             {
@@ -1090,7 +1092,8 @@ bool Problem::IsGoodStep() {
 //            dog leg lambda update method
             currentLambda_ = std::max(min_Lambda_, 2.0 * currentLambda_ / ni_);
             currentChi_ = tempChi;
-            reuse_ = false;
+            reuse_a_ = false;
+            reuse_DTD_ = false;
             return true;
         }
 
