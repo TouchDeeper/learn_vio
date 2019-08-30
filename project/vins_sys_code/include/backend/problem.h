@@ -187,6 +187,7 @@ private:
     Eigen::DiagonalMatrix<double, Eigen::Dynamic> jacobian_scaling_;
     Eigen::DiagonalMatrix<double, Eigen::Dynamic> DTD_Hmm_;
     Eigen::DiagonalMatrix<double, Eigen::Dynamic> DTD_Hpp_;
+    VecX DTD_vec_;
     double currentLambda_;
     double min_Lambda_;
     double current_region_raidus_;

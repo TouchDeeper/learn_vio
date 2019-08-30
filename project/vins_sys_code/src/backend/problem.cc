@@ -676,30 +676,23 @@ void Problem::SolveLinearSystem() {
         VecX hgn;
         hgn = H.ldlt().solve(b_);
 
-        if(solverType_ == SolverType::LM )
+        if(solverType_ == SolverType::LM)
         {
-            // PCG solver
-            // delta_x_ = PCGSolver(H, b_, H.rows() * 2);
 
             if(JACOBIAN_SCALING)
             {
                 delta_x_ = jacobian_scaling_ * hgn;
                 b_false = b_;//一旦当前步无效，b_不会重新计算，所以对缩放后的b_进行备份
                 b_ = b_backup;//对b_进行解缩放
-                Hessian_false = Hessian_;//Hessian_同理
+                Hessian_false = Hessian_;
                 Hessian_ = Hessian_backup;
+
             }
-            else{
+            else
                 delta_x_ = hgn;
-
-            }
-//            std::cout<<"delta_x_ : \n"<<delta_x_<<std::endl;
-
-        } else
-        {
-            //dog leg
-            ComputeDoglegStep(hgn);
         }
+        else
+            ComputeDoglegStep(hgn);
 
     } else {
 
@@ -717,26 +710,26 @@ void Problem::SolveLinearSystem() {
         // Hmm 是对角线矩阵，它的求逆可以直接为对角线块分别求逆，如果是逆深度，对角线块为1维的，则直接为对角线的倒数，这里可以加速
         MatXX Hmm_inv(MatXX::Zero(marg_size, marg_size));
         MatXX DTD;
-        if(OPTIMIZE_LM){
-            if(DTD_SCALING)
-            {
-                if(!reuse_DTD_)
-                {
-                    auto DTD_vec = Hessian_.diagonal();
-                    //TODO use openMp
-                    for (int i = 0; i < DTD_vec.size(); ++i) {
-                        DTD_vec(i) = std::min(std::max(DTD_vec(i), min_diagonal_),
-                                              max_diagonal_);
-                    }
-                    DTD_Hmm_ = DTD_vec.segment(reserve_size, marg_size).asDiagonal();
-                    DTD_Hpp_ = DTD_vec.segment(0, reserve_size).asDiagonal();
-
-                }
-                Hmm += currentLambda_ * DTD_Hmm_;
-                Hpp += currentLambda_ * DTD_Hpp_;
-            }
-
-        }
+//        if(OPTIMIZE_LM){
+//            if(DTD_SCALING)
+//            {
+//                if(!reuse_DTD_)
+//                {
+//                    auto DTD_vec_ = Hessian_.diagonal();
+//                    //TODO use openMp
+//                    for (int i = 0; i < DTD_vec_.size(); ++i) {
+//                        DTD_vec_(i) = std::min(std::max(DTD_vec_(i), min_diagonal_),
+//                                              max_diagonal_);
+//                    }
+//                    DTD_Hmm_ = DTD_vec_.segment(reserve_size, marg_size).asDiagonal();
+//                    DTD_Hpp_ = DTD_vec_.segment(0, reserve_size).asDiagonal();
+//
+//                }
+//                Hmm += currentLambda_ * DTD_Hmm_;
+//                Hpp += currentLambda_ * DTD_Hpp_;
+//            }
+//
+//        }
         // TODO:: use openMP
         for (auto landmarkVertex : idx_landmark_vertices_) {
             int idx = landmarkVertex.second->OrderingId() - reserve_size;
@@ -766,6 +759,20 @@ void Problem::SolveLinearSystem() {
         if(OPTIMIZE_LM){
             if(DTD_SCALING)
             {
+                if(!reuse_DTD_)
+                {
+                    DTD_vec_ = Hessian_.diagonal();
+                    //TODO use openMp
+                    for (int i = 0; i < DTD_vec_.size(); ++i) {
+                        DTD_vec_(i) = std::min(std::max(DTD_vec_(i), min_diagonal_),
+                                              max_diagonal_);
+                    }
+                    DTD_Hmm_ = DTD_vec_.segment(reserve_size, marg_size).asDiagonal();
+                    DTD_Hpp_ = DTD_vec_.segment(0, reserve_size).asDiagonal();
+                }
+                for (ulong i = 0; i < ordering_poses_; ++i){
+                    H_pp_schur_(i, i) += currentLambda_ * DTD_vec_(i); // LM Method
+                }
 
             }
         } else{
@@ -776,8 +783,8 @@ void Problem::SolveLinearSystem() {
 
 
 //        if(OPTIMIZE_LM){
-//            VecX DTD_vec = Hessian_.colwise().sum();
-//            DTD = DTD_vec.asDiagonal();
+//            VecX DTD_vec_ = Hessian_.colwise().sum();
+//            DTD = DTD_vec_.asDiagonal();
 //            H_pp_schur_ += currentLambda_ * DTD.block(0, 0, ordering_poses_, ordering_poses_);
 //        }
 
@@ -812,7 +819,6 @@ void Problem::SolveLinearSystem() {
         }
         else
             ComputeDoglegStep(hgn);
-
 
 
 //        std::cout << "schur time cost: "<< t_Hmminv.toc()<<std::endl;
@@ -950,8 +956,11 @@ void Problem::ComputeLambdaInit() {
 
     maxDiagonal = std::min(5e10, maxDiagonal);
     double tau;
+//    if(problemType_ == ProblemType::GENERIC_PROBLEM)
+//        tau = 1e4;
+//    else
     if(JACOBIAN_SCALING)
-        tau = 1e-5;
+        tau = 1e-4; //使用了jacobian_scaling,通过这种方式算出来的currentLambda始终等于tau,相当于tau就是初值，ceres中给的1e-4
     else
         tau = 1e-5;
     currentLambda_ = tau * maxDiagonal;
@@ -963,6 +972,11 @@ void Problem::ComputeLambdaInit() {
 //    {
 //        currentLambda_ = 1e-8;
 //    }
+
+    if(NEW_LM_UPDATE)
+        if(problemType_ == ProblemType::GENERIC_PROBLEM)
+            currentLambda_ = 1e4;
+
     min_Lambda_ = 1e-8;
     //TODO dogleg 的current_region_raidus_的初始值参考下ceres代码
 //    current_region_raidus_ = 1 / currentLambda_;
