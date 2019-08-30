@@ -678,18 +678,7 @@ void Problem::SolveLinearSystem() {
 
         if(solverType_ == SolverType::LM)
         {
-
-            if(JACOBIAN_SCALING)
-            {
-                delta_x_ = jacobian_scaling_ * hgn;
-                b_false = b_;//一旦当前步无效，b_不会重新计算，所以对缩放后的b_进行备份
-                b_ = b_backup;//对b_进行解缩放
-                Hessian_false = Hessian_;
-                Hessian_ = Hessian_backup;
-
-            }
-            else
-                delta_x_ = hgn;
+            delta_x_ = hgn;
         }
         else
             ComputeDoglegStep(hgn);
@@ -804,17 +793,6 @@ void Problem::SolveLinearSystem() {
 
         if(solverType_ == SolverType::LM)
         {
-
-            if(JACOBIAN_SCALING)
-            {
-                delta_x_ = jacobian_scaling_ * hgn;
-                b_false = b_;//一旦当前步无效，b_不会重新计算，所以对缩放后的b_进行备份
-                b_ = b_backup;//对b_进行解缩放
-                Hessian_false = Hessian_;
-                Hessian_ = Hessian_backup;
-
-            }
-            else
                 delta_x_ = hgn;
         }
         else
@@ -822,6 +800,17 @@ void Problem::SolveLinearSystem() {
 
 
 //        std::cout << "schur time cost: "<< t_Hmminv.toc()<<std::endl;
+    }
+
+    if(JACOBIAN_SCALING)
+    {
+        delta_x_scaled_ = delta_x_;//用来算scale_，L(0) - L(Δw) = L(0) - L(Δx),由于采用的是右侧，所以备份解缩放前的delta_x_
+        delta_x_ = jacobian_scaling_ * delta_x_;
+//        b_false = b_;//一旦当前步无效，b_不会重新计算，所以对缩放后的b_进行备份
+//        b_ = b_backup;
+//        Hessian_false = Hessian_;
+//        Hessian_ = Hessian_backup;
+
     }
 
 }
@@ -912,13 +901,13 @@ void Problem::UpdateStates() {
 
 void Problem::RollbackStates() {
 
-    if(JACOBIAN_SCALING)
-    {
-        b_ = b_false;
-        Hessian_ = Hessian_false;
-//        std::cout<<"rollback b_: \n"<<b_<<std::endl;
-//        std::cout<<"rollback Hessian_ \n"<<Hessian_<<std::endl;
-    }
+//    if(JACOBIAN_SCALING)
+//    {
+//        b_ = b_false;
+//        Hessian_ = Hessian_false;
+////        std::cout<<"rollback b_: \n"<<b_<<std::endl;
+////        std::cout<<"rollback Hessian_ \n"<<Hessian_<<std::endl;
+//    }
 
     // update vertex
     for (auto vertex: verticies_) {
@@ -978,9 +967,11 @@ void Problem::ComputeLambdaInit() {
             currentLambda_ = 1e4;
 
     min_Lambda_ = 1e-8;
-    //TODO dogleg 的current_region_raidus_的初始值参考下ceres代码
-//    current_region_raidus_ = 1 / currentLambda_;
-    current_region_raidus_ = 1e2;
+
+    if(JACOBIAN_SCALING)
+        current_region_raidus_ = 1 / currentLambda_;//ceres中radius_的初始值为10000
+    else
+        current_region_raidus_ = 1e2;
 
 
     std::cout << "maxDiagonal = "<<maxDiagonal<<"   "<<"currentLambda_ = "<<currentLambda_<<std::endl;
@@ -1022,8 +1013,11 @@ bool Problem::IsGoodStep() {
         //    scale = 0.5 * delta_x_.transpose() * (currentLambda_ * delta_x_ + b_);
 //    scale += 1e-3;    // make sure it's non-zero :)
 //        std::cout<<"***********compute the scale"<<std::endl;
-        if(JACOBIAN_SCALING)//currentLambda_是在J被scale后计算的，到这里时b_和delta_x_都已经解缩放了，因此不能和currentLambda一起计算，所以不能用第二个公式
-            scale_ = -delta_x_.transpose() * (-b_ + 0.5 * Hessian_ * delta_x_);
+        if(JACOBIAN_SCALING)
+        {
+//            scale_ = -delta_x_.transpose() * (-b_ + 0.5 * Hessian_ * delta_x_);
+            scale_ = 0.5* delta_x_scaled_.transpose() * (currentLambda_ * delta_x_scaled_ + b_);
+        }
         else
             scale_ = 0.5* delta_x_.transpose() * (currentLambda_ * delta_x_ + b_);
         scale_ += 1e-6;    // make sure it's non-zero :)
@@ -1058,23 +1052,6 @@ bool Problem::IsGoodStep() {
             return false;
         }
     } else{
-//        if (rho > 0 && isfinite(tempChi))   // last step was good, 误差在下降
-//        {
-//            double alpha_ = 1. - pow((2 * rho - 1), 3);
-//            alpha_ = std::min(alpha_, 2. / 3.);
-//            double scaleFactor = (std::max)(1. / 3., alpha_);
-//            currentLambda_ *= scaleFactor;
-//            ni_ = 2;
-//            currentChi_ = tempChi;
-//            current_region_raidus_ = 1 / currentLambda_;
-//            return true;
-//        } else {
-//            currentLambda_ *= ni_;
-//            ni_ *= 2;
-//            current_region_raidus_ = 1 / currentLambda_;
-//            return false;
-//        }
-
 
         if(rho < 0 || !isfinite(tempChi))
         {
@@ -1156,6 +1133,7 @@ bool Problem::IsGoodStepInLM_NewUpdate() {
     tempChi *= 0.5;
 
 //    std::cout<<"new ||delta_x_|| = "<<delta_x_.norm()<<"   new tempChi = "<<tempChi<<std::endl;
+    //TODO jacobian scaling的情况下要考虑一下
     scale = 0.5 * delta_x_.transpose() * (currentLambda_ * delta_x_ + b_);
     scale += 1e-6;    // make sure it's non-zero :)
     double rho = (currentChi_ - tempChi) / scale;

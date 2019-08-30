@@ -205,7 +205,7 @@ private:
     VecX b_backup;
     VecX b_false;
     VecX delta_x_;
-
+    VecX delta_x_scaled_;
     /// 先验部分信息
     MatXX H_prior_;
     VecX b_prior_;
