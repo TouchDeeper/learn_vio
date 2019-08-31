@@ -129,7 +129,7 @@ private:
     void SchurSBA();
 
     /// 解线性方程
-    void SolveLinearSystem();
+    bool SolveLinearSystem();
 
     /// 更新状态变量
     void UpdateStates();
@@ -172,15 +172,16 @@ private:
     VecX PCGSolver(const MatXX &A, const VecX &b, int maxIter);
 
     /**              DOG LEG            **/
-    void ComputeDoglegStep(const VecX hgn);
+    void ComputeDoglegStep();
 //    double alpha_; //a_ = alpha_ * hsd_
-//    int hdl_type_; //1对应hdl=hgn, 2对应hdl = -delta * g / ||g||, 3其他
+    int hdl_type_; //1对应hdl=hgn, 2对应hdl = -delta * g / ||g||, 3其他
     double scale_; //L(0) - L(hdl)
     bool reuse_a_ = false;
     double t_reuse_cost_ = 0;
     VecX hsd_;
     double alpha_;
     VecX a_;
+    VecX hgn;
     double min_diagonal_ = 1e-6;
     double max_diagonal_ = 1e32;
     bool reuse_DTD_;
@@ -188,6 +189,8 @@ private:
     Eigen::DiagonalMatrix<double, Eigen::Dynamic> DTD_Hmm_;
     Eigen::DiagonalMatrix<double, Eigen::Dynamic> DTD_Hpp_;
     VecX DTD_vec_;
+    VecX D_;
+    VecX D_inverse_;
     double currentLambda_;
     double min_Lambda_;
     double current_region_raidus_;

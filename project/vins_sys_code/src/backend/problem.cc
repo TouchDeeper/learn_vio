@@ -15,7 +15,7 @@
 #endif
 
 using namespace std;
-
+int kMaxLambda = 1;
 // define the format you want, you only need one instance of this...
 const static Eigen::IOFormat CSVFormat(Eigen::StreamPrecision, Eigen::DontAlignCols, ", ", "\n");
 
@@ -23,7 +23,17 @@ void writeToCSVfile(std::string name, Eigen::MatrixXd matrix) {
     std::ofstream f(name.c_str());
     f << matrix.format(CSVFormat);
 }
-
+int kImpossibleValue = 5000;//设定你认为不可能达到的值
+bool IsArrayValid(const VecX x) {
+    if (x.size() > 0) {
+        for (int i = 0; i < x.size(); ++i) {
+            if (!std::isfinite(x[i]) || (x[i] > kImpossibleValue))  {
+                return false;
+            }
+        }
+    }
+    return true;
+}
 namespace myslam {
 namespace backend {
 void Problem::LogoutVectorSize() {
@@ -220,6 +230,15 @@ bool Problem::Solve(int iterations) {
         int false_cnt = 0;
         while (!oneStepSuccess)  // 不断尝试 Lambda, 直到成功迭代一步
         {
+            if(solverType_ == SolverType::DOG_LEG)
+                if(currentLambda_ >= kMaxLambda)
+                {
+                    if(VERBOSE)
+                        if(STOP_REASON)
+                            std::cout << "stop reason: currentLambda_ >= kMaxLambda" << std::endl;
+                    stop = true;
+                    break;
+                }
 
             if ( false_cnt > 10)
             {
@@ -233,7 +252,14 @@ bool Problem::Solve(int iterations) {
             // setLambda
 //            AddLambdatoHessianLM();
             // 第四步，解线性方程
-            SolveLinearSystem();
+            if(!SolveLinearSystem())
+            {
+                if(VERBOSE)
+                    if(STOP_REASON)
+                        std::cout << "stop reason: gauss_netwon can't compute a valid step" << std::endl;
+                stop = true;
+                break;
+            }
             //
 //            RemoveLambdaHessianLM();
 
@@ -267,15 +293,18 @@ bool Problem::Solve(int iterations) {
                 else
                     oneStepSuccess = IsGoodStep();
             } else
+            {
                 oneStepSuccess = IsGoodStep();
+            }
+
             if(VERBOSE)
             {
                 if(SHOW_LAMBDA)
                 {
                     if(oneStepSuccess)
-                        std::cout<<"step valid, currentLambda_ = "<<currentLambda_<<"    ||delta_x||= " << delta_x_.norm()<<std::endl;
+                        std::cout<<"step valid, Lambda_ = "<<currentLambda_<<"    radius = "<<current_region_raidus_<<"    ||delta_x||= " << delta_x_.norm()<<std::endl;
                     else
-                        std::cout<<"rollback, currentLambda_ = "<<currentLambda_<<"    ||delta_x||= " << delta_x_.norm()<<std::endl;
+                        std::cout<<"rollback, Lambda_ = "<<currentLambda_<<"    radius = "<<current_region_raidus_<<"    ||delta_x||= " << delta_x_.norm()<<std::endl;
 
                 }
             }
@@ -415,14 +444,11 @@ void Problem::MakeHessian() {
     VecX b(VecX::Zero(size));
 
 
-    // TODO:: accelate, accelate, accelate
-
     for (auto &edge : edges_) {
 
         edge.second->ComputeResidual();
         edge.second->ComputeJacobians();
 
-        // TODO:: robust cost
         auto jacobians = edge.second->Jacobians();
         auto verticies = edge.second->Verticies();
         assert(jacobians.size() == verticies.size());
@@ -516,7 +542,6 @@ void Problem::MultiThreadMakeHessian() {
     VecX b(VecX::Zero(size));
 
 
-    // TODO:: accelate, accelate, accelate
     std::vector<std::shared_ptr<Edge>> edges;
     for (auto edge : edges_) {
         edges.push_back(edge.second);
@@ -532,7 +557,6 @@ void Problem::MultiThreadMakeHessian() {
         edges[k]->ComputeResidual();
         edges[k]->ComputeJacobians();
 
-        // TODO:: robust cost
         auto jacobians = edges[k]->Jacobians();
         auto verticies = edges[k]->Verticies();
         assert(jacobians.size() == verticies.size());
@@ -635,8 +659,8 @@ void Problem::JacobianScaling(){
 //        std::cout<<"Hessian_:"<<std::endl<<Hessian_<<std::endl;
 //        std::cout<<"JTJ"<<std::endl<<Hessian_temp<<std::endl;
         //backup the hessian and b before scale
-        Hessian_backup = Hessian_;
-        b_backup = b_;
+//        Hessian_backup = Hessian_;
+//        b_backup = b_;
 //            std::cout<< "the difference norm of the hessian = " << (Hessian_.inverse() * Hessian_temp).norm()<<std::endl;
         MatXX H = Hessian_;
         VecX jacobian_scaling_vec = H.diagonal();
@@ -662,26 +686,71 @@ void Problem::JacobianScaling(){
 /*
  * Solve Hx = b, we can use PCG iterative method or use sparse Cholesky
  */
-void Problem::SolveLinearSystem() {
+bool Problem::SolveLinearSystem() {
 
 
     if (problemType_ == ProblemType::GENERIC_PROBLEM) {
         MatXX H = Hessian_;
 //        std::cout<<"SolverLinearSystem, Hessian_ :\n"<<Hessian_<<std::endl;
-        for (size_t i = 0; i < Hessian_.cols(); ++i) {
-            H(i, i) += currentLambda_;
-        }
-        if(b_.transpose() * H * b_ <0)
-            std::cerr<<"what a fuck, H is not semi-positive"<<std::endl;
-        VecX hgn;
-        hgn = H.ldlt().solve(b_);
+        bool hgn_valid = false;
+        int hgn_invalid_times = 0;
+        while (!hgn_valid)
+        {
+            if(DTD_SCALING)
+            {
+                if(!reuse_DTD_)
+                {
+                    DTD_vec_ = Hessian_.diagonal();
+                    //TODO use openMp
+                    for (int i = 0; i < DTD_vec_.size(); ++i) {
+                        DTD_vec_(i) = std::min(std::max(DTD_vec_(i), min_diagonal_),
+                                               max_diagonal_);
+                    }
+                    D_ = DTD_vec_.array().sqrt();
+                    D_inverse_ = D_.array().inverse();
+//                    std::cout<<"D : "<<D_.transpose()<<"    D_inverse : "<<D_inverse_.transpose()<<std::endl;
+                }
+                for (ulong i = 0; i < Hessian_.cols(); ++i){
+                    H(i, i) += currentLambda_ * DTD_vec_(i); // LM Method
+                }
 
+            } else{
+                for (size_t i = 0; i < Hessian_.cols(); ++i) {
+                    H(i, i) += currentLambda_;
+                }
+            }
+
+//          if(b_.transpose() * H * b_ <0)
+//               std::cerr<<"what a fuck, H is not semi-positive"<<std::endl;
+
+            hgn = H.ldlt().solve(b_);
+            if(!IsArrayValid(hgn))
+            {
+                currentLambda_ *= ni_;
+                if(solverType_ == SolverType::LM)
+                {
+                    if(hgn_invalid_times >= 8)
+                        return false;
+                    hgn_invalid_times ++;
+                }
+                else
+                    if(currentLambda_ >= kMaxLambda)
+                        return false;
+
+                hgn_valid = false;
+
+            } else
+                hgn_valid = true;
+
+        }
         if(solverType_ == SolverType::LM)
         {
             delta_x_ = hgn;
         }
         else
-            ComputeDoglegStep(hgn);
+            if(DTD_SCALING)
+                hgn = D_.asDiagonal() * hgn;
+            ComputeDoglegStep();
 
     } else {
 
@@ -726,7 +795,7 @@ void Problem::SolveLinearSystem() {
             Hmm_inv.block(idx, idx, size, size) = Hmm.block(idx, idx, size, size).inverse();
         }
 
-
+        //TODO 这部分的计算能不能放到makeHessian里去做，没必要每次求解都做一次
         MatXX tempH = Hpm * Hmm_inv;
 
         H_pp_schur_ = Hpp - tempH * Hmp;
@@ -735,7 +804,6 @@ void Problem::SolveLinearSystem() {
 
         // step2: solve Hpp * delta_x = bpp
         VecX delta_x_pp(VecX::Zero(reserve_size));
-        //TODO 这里相当于令D=I,可以改成JTJ的对角线元素，可以参考ceres的代码
 //        if(solverType_ == SolverType::LM)
 //        {
 //            for (ulong i = 0; i < ordering_poses_; ++i){
@@ -745,26 +813,29 @@ void Problem::SolveLinearSystem() {
 
 //        ceres 在dogleg算法里计算gauss newton step时也用了LM的方法
 
-        if(OPTIMIZE_LM){
-            if(DTD_SCALING)
-            {
-                if(!reuse_DTD_)
-                {
-                    DTD_vec_ = Hessian_.diagonal();
-                    //TODO use openMp
-                    for (int i = 0; i < DTD_vec_.size(); ++i) {
-                        DTD_vec_(i) = std::min(std::max(DTD_vec_(i), min_diagonal_),
-                                              max_diagonal_);
-                    }
-                    DTD_Hmm_ = DTD_vec_.segment(reserve_size, marg_size).asDiagonal();
-                    DTD_Hpp_ = DTD_vec_.segment(0, reserve_size).asDiagonal();
-                }
-                for (ulong i = 0; i < ordering_poses_; ++i){
-                    H_pp_schur_(i, i) += currentLambda_ * DTD_vec_(i); // LM Method
-                }
 
+
+        if(DTD_SCALING)
+        {
+            if(!reuse_DTD_)
+            {
+                DTD_vec_ = Hessian_.diagonal();
+                //TODO use openMp
+                for (int i = 0; i < DTD_vec_.size(); ++i) {
+                    DTD_vec_(i) = std::min(std::max(DTD_vec_(i), min_diagonal_),
+                                          max_diagonal_);
+                }
+                DTD_Hmm_ = DTD_vec_.segment(reserve_size, marg_size).asDiagonal();
+                DTD_Hpp_ = DTD_vec_.segment(0, reserve_size).asDiagonal();
+                D_ = DTD_vec_.array().sqrt();
+                D_inverse_ = D_.array().sqrt();
             }
-        } else{
+            for (ulong i = 0; i < ordering_poses_; ++i){
+                H_pp_schur_(i, i) += currentLambda_ * DTD_vec_(i); // LM Method
+            }
+
+        }
+        else{
             for (ulong i = 0; i < ordering_poses_; ++i){
                 H_pp_schur_(i, i) += currentLambda_; // LM Method
             }
@@ -779,7 +850,7 @@ void Problem::SolveLinearSystem() {
 
 
         // TicToc t_linearsolver;
-        VecX hgn(VecX::Zero(delta_x_.size()));
+        hgn = VecX::Zero(delta_x_.size());
 
         delta_x_pp =  H_pp_schur_.ldlt().solve(b_pp_schur_);//  SVec.asDiagonal() * svd.matrixV() * Ub;    
         hgn.head(reserve_size) = delta_x_pp;
@@ -796,7 +867,7 @@ void Problem::SolveLinearSystem() {
                 delta_x_ = hgn;
         }
         else
-            ComputeDoglegStep(hgn);
+            ComputeDoglegStep();
 
 
 //        std::cout << "schur time cost: "<< t_Hmminv.toc()<<std::endl;
@@ -813,26 +884,37 @@ void Problem::SolveLinearSystem() {
 
     }
 
-}
-void Problem::ComputeDoglegStep(const VecX hgn){
+    return true;
 
+}
+
+void Problem::ComputeDoglegStep(){
 
     //2. compute hdl
-    scale_ = 0; //使用之前先置０
+//    scale_ = 0; //使用之前先置０
     if(hgn.norm() <= current_region_raidus_ )
     {
-        if(VERBOSE)
-            if(HDL_CHOOSE)
-                std::cout<<"hdl choose: hgn.norm() <= current_region_raidus_, ||hgn||="<<hgn.norm()<<",region_radius="<<current_region_raidus_<<std::endl;
         delta_x_ = hgn;
-        scale_ = currentChi_;
+//        scale_ = currentChi_;
+        hdl_type_ = 1;
     }
     else{
         // compute gradient decent step
         if(!reuse_a_ || hsd_.size()<1)//加上第二个判断条件是因为第一次如果是case1然后又失效的话，hsd此时无值，reuse_又等于true
         {
-            hsd_ = b_; //F's gradient
-            alpha_ = hsd_.squaredNorm() / (hsd_.transpose() * Hessian_ * hsd_);
+
+            if(DTD_SCALING)
+            {
+                hsd_ = b_.array() / D_.array(); //F's gradient
+//                double DhsdSquare = hsd_.transpose() * DTD_vec_.asDiagonal() * hsd_;
+                double JDDhsdSquare  = hsd_.transpose() * D_inverse_.asDiagonal() * Hessian_ * D_inverse_.asDiagonal() * hsd_;
+                alpha_ = hsd_.squaredNorm() / JDDhsdSquare;
+            }
+            else{
+                hsd_ = b_.array(); //F's gradient
+                alpha_ = hsd_.squaredNorm() / (hsd_.transpose() * Hessian_ * hsd_);
+
+            }
             //TODO alpha都是0,为什么,检查计算过程中的数值问题
             std::cout<<"alpha = "<<alpha_<<std::endl;
             a_ = alpha_ * hsd_;
@@ -841,17 +923,12 @@ void Problem::ComputeDoglegStep(const VecX hgn){
 
         if(a_.norm() >= current_region_raidus_)
         {
-            if(VERBOSE)
-                if(HDL_CHOOSE)
-                    std::cout<<"hdl choose: a_.norm() >= current_region_raidus_ "<<std::endl;
             //TODO check the hsd_.norm
             delta_x_ = current_region_raidus_  * hsd_.normalized();
-            scale_ = current_region_raidus_ * (2 * a_.norm() - current_region_raidus_) / (2 * alpha_);
+            hdl_type_ = 2;
+//            scale_ = current_region_raidus_ * (2 * a_.norm() - current_region_raidus_) / (2 * alpha_);
         }
         else{
-            if(VERBOSE)
-                if(HDL_CHOOSE)
-                    std::cout<<"hdl choose: hdl = alpha_ * hsd_ + beta *(hgn - alpha_ * hsd_) "<<std::endl;
             VecX b = hgn;
             double c = a_.transpose() * b - a_.squaredNorm();
             double beta;
@@ -861,11 +938,31 @@ void Problem::ComputeDoglegStep(const VecX hgn){
 
             delta_x_ = alpha_ * hsd_ + beta * (hgn - alpha_ * hsd_);
             assert(abs(delta_x_.norm() - current_region_raidus_) < 1e-5);
-            scale_ = 0.5 * alpha_ *pow((1 - beta),2) * hsd_.squaredNorm() + beta * (2 - beta) * currentChi_;
+            hdl_type_ = 3;
+
+//            scale_ = 0.5 * alpha_ *pow((1 - beta),2) * hsd_.squaredNorm() + beta * (2 - beta) * currentChi_;
         }
     }
-    if(scale_ < 0)
-        std::cerr<<"what a fuck, no decent"<<std::endl;
+    if(DTD_SCALING)
+        delta_x_ = D_inverse_.asDiagonal() * delta_x_;
+    if(VERBOSE)
+        if(HDL_CHOOSE)
+            switch(hdl_type_){
+                case 1:
+                    std::cout<<"hdl choose: hgn.norm() <= current_region_raidus_, ||hgn||="<<hgn.norm()<<",region_radius="<<current_region_raidus_<<std::endl;
+                    break;
+                case 2:
+                    std::cout<<"hdl choose: a_.norm() >= current_region_raidus_ "<<std::endl;
+                    break;
+                case 3:
+                    std::cout<<"hdl choose: hdl = alpha_ * hsd_ + beta *(hgn - alpha_ * hsd_) "<<std::endl;
+                    break;
+            }
+
+
+
+//    if(scale_ < 0)
+//        std::cerr<<"what a fuck, no decent"<<std::endl;
 
 }
 
@@ -957,10 +1054,12 @@ void Problem::ComputeLambdaInit() {
 //    {
 //        currentLambda_ = 1e-4;
 //    }
-//    if(solverType_ == SolverType::DOG_LEG)
-//    {
-//        currentLambda_ = 1e-8;
-//    }
+        //TODO ceres中dogleg的currentLambda_是在1e-8和１之间变动
+    if(solverType_ == SolverType::DOG_LEG)
+    {
+        currentLambda_ = 1e-8;
+        ni_ = 10;//不变的
+    }
 
     if(NEW_LM_UPDATE)
         if(problemType_ == ProblemType::GENERIC_PROBLEM)
@@ -969,7 +1068,10 @@ void Problem::ComputeLambdaInit() {
     min_Lambda_ = 1e-8;
 
     if(JACOBIAN_SCALING)
-        current_region_raidus_ = 1 / currentLambda_;//ceres中radius_的初始值为10000
+        if(problemType_ == ProblemType::GENERIC_PROBLEM)
+            current_region_raidus_ = 1e4;
+        else
+            current_region_raidus_ = 1 / currentLambda_;//ceres中radius_的初始值为10000
     else
         current_region_raidus_ = 1e2;
 
@@ -996,17 +1098,6 @@ void Problem::RemoveLambdaHessianLM() {
 //LM or DOGLEG
 bool Problem::IsGoodStep() {
 
-
-    // recompute residuals after update state
-    double tempChi = 0.0;
-    for (auto edge: edges_) {
-        edge.second->ComputeResidual();
-        tempChi += edge.second->RobustChi2();
-    }
-    if (err_prior_.size() > 0)
-        tempChi += err_prior_.squaredNorm();
-    tempChi *= 0.5;          // 1/2 * err^2
-
     if(solverType_ == SolverType::LM)
     {
         scale_ = 0;//使用之前置0
@@ -1024,12 +1115,32 @@ bool Problem::IsGoodStep() {
 //        std::cout<<"***********compute the scale done"<<std::endl;
 
     } else{
-//        scale_ = 0;
-//        auto scale_temp = b_.transpose() * delta_x_ - 0.5 * delta_x_.transpose() * Hessian_ * delta_x_;
+        scale_ = 0;
+        if(JACOBIAN_SCALING)
+            scale_ = delta_x_scaled_.transpose() * ( b_ - 0.5 * Hessian_ * delta_x_scaled_);
+        else
+            scale_ = delta_x_.transpose() * ( b_ - 0.5 * Hessian_ * delta_x_);
 //        std::cout<<"scale_ = "<<scale_<<"       scale_temp = "<<scale_temp<<std::endl;
 //        scale_ = scale_temp(0);
         scale_ += 1e-6;
+        if(scale_ < 0)
+        {
+            currentLambda_ *= ni_;
+            reuse_a_ = true;
+            return false;
+        }
+
     }//dog leg在ComputeDoglegStep()函数中已经计算过scale_
+
+    // recompute residuals after update state
+    double tempChi = 0.0;
+    for (auto edge: edges_) {
+        edge.second->ComputeResidual();
+        tempChi += edge.second->RobustChi2();
+    }
+    if (err_prior_.size() > 0)
+        tempChi += err_prior_.squaredNorm();
+    tempChi *= 0.5;          // 1/2 * err^2
 
     double rho = (currentChi_ - tempChi) / scale_;
 
@@ -1058,13 +1169,19 @@ bool Problem::IsGoodStep() {
             //LM Lambda update method
 //            currentLambda_ *= ni_;
 //            ni_ *= 2;
+            //TODO ceres貌似并没有stepRejected中对currentLambda进行更新
 //           dogleg Lambda update method
-            currentLambda_ *= ni_;
+//            ni_ = 10;
+//            currentLambda_ *= ni_;
 
-            current_region_raidus_ *= 0.5;
             reuse_a_ = true;
             reuse_DTD_ = true;
-            return false;
+            if(hdl_type_ == 1)
+                current_region_raidus_ = 0.9 * hgn.norm();
+            else
+                current_region_raidus_ *= 0.5;
+
+                return false;
         }else
         {
             if(rho < 0.25)
