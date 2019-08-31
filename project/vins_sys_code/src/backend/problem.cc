@@ -28,6 +28,7 @@ bool IsArrayValid(const VecX x) {
     if (x.size() > 0) {
         for (int i = 0; i < x.size(); ++i) {
             if (!std::isfinite(x[i]) || (x[i] > kImpossibleValue))  {
+                std::cout<<"exist numeric problem"<<std::endl;
                 return false;
             }
         }
@@ -692,10 +693,10 @@ bool Problem::SolveLinearSystem() {
     if (problemType_ == ProblemType::GENERIC_PROBLEM) {
         MatXX H = Hessian_;
 //        std::cout<<"SolverLinearSystem, Hessian_ :\n"<<Hessian_<<std::endl;
-        bool hgn_valid = false;
-        int hgn_invalid_times = 0;
-        while (!hgn_valid)
-        {
+//        bool hgn_valid = false;
+//        int hgn_invalid_times = 0;
+//        while (!hgn_valid)
+//        {
             if(DTD_SCALING)
             {
                 if(!reuse_DTD_)
@@ -724,25 +725,25 @@ bool Problem::SolveLinearSystem() {
 //               std::cerr<<"what a fuck, H is not semi-positive"<<std::endl;
 
             hgn = H.ldlt().solve(b_);
-            if(!IsArrayValid(hgn))
-            {
-                currentLambda_ *= ni_;
-                if(solverType_ == SolverType::LM)
-                {
-                    if(hgn_invalid_times >= 8)
-                        return false;
-                    hgn_invalid_times ++;
-                }
-                else
-                    if(currentLambda_ >= kMaxLambda)
-                        return false;
+//            if(!IsArrayValid(hgn))
+//            {
+//                currentLambda_ *= ni_;
+//                if(solverType_ == SolverType::LM)
+//                {
+//                    if(hgn_invalid_times >= 8)
+//                        return false;
+//                    hgn_invalid_times ++;
+//                }
+//                else
+//                    if(currentLambda_ >= kMaxLambda)
+//                        return false;
+//
+//                hgn_valid = false;
+//
+//            } else
+//                hgn_valid = true;
 
-                hgn_valid = false;
-
-            } else
-                hgn_valid = true;
-
-        }
+//        }
     } else {
 
 //        TicToc t_Hmminv;
