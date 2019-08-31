@@ -891,7 +891,7 @@ void Problem::ComputeDoglegStep(){
     if(hgn.norm() <= current_region_raidus_ )
     {
         delta_x_ = hgn;
-//        scale_ = currentChi_;
+        scale_ = currentChi_;
         hdl_type_ = 1;
     }
     else{
@@ -922,7 +922,7 @@ void Problem::ComputeDoglegStep(){
             //TODO check the hsd_.norm
             delta_x_ = current_region_raidus_  * hsd_.normalized();
             hdl_type_ = 2;
-//            scale_ = current_region_raidus_ * (2 * a_.norm() - current_region_raidus_) / (2 * alpha_);
+            scale_ = current_region_raidus_ * (2 * a_.norm() - current_region_raidus_) / (2 * alpha_);
         }
         else{
             VecX b = hgn;
@@ -936,7 +936,7 @@ void Problem::ComputeDoglegStep(){
             assert(abs(delta_x_.norm() - current_region_raidus_) < 1e-5);
             hdl_type_ = 3;
 
-//            scale_ = 0.5 * alpha_ *pow((1 - beta),2) * hsd_.squaredNorm() + beta * (2 - beta) * currentChi_;
+            scale_ = 0.5 * alpha_ *pow((1 - beta),2) * hsd_.squaredNorm() + beta * (2 - beta) * currentChi_;
         }
     }
     if(DTD_SCALING)
@@ -1112,20 +1112,20 @@ bool Problem::IsGoodStep() {
 //        std::cout<<"***********compute the scale done"<<std::endl;
 
     } else{
-        scale_ = 0;
-        if(JACOBIAN_SCALING)
-            scale_ = delta_x_scaled_.transpose() * ( b_ - 0.5 * Hessian_ * delta_x_scaled_);
-        else
-            scale_ = delta_x_.transpose() * ( b_ - 0.5 * Hessian_ * delta_x_);
+//        scale_ = 0;
+//        if(JACOBIAN_SCALING)
+//            scale_ = delta_x_scaled_.transpose() * ( b_ - 0.5 * Hessian_ * delta_x_scaled_);
+//        else
+//            scale_ = delta_x_.transpose() * ( b_ - 0.5 * Hessian_ * delta_x_);
 //        std::cout<<"scale_ = "<<scale_<<"       scale_temp = "<<scale_temp<<std::endl;
-//        scale_ = scale_temp(0);
-        scale_ += 1e-6;
+
         if(scale_ < 0)
         {
             currentLambda_ *= ni_;
             reuse_a_ = true;
             return false;
         }
+        scale_ += 1e-6;
 
     }//dog leg在ComputeDoglegStep()函数中已经计算过scale_
 
