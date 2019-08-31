@@ -743,15 +743,6 @@ bool Problem::SolveLinearSystem() {
                 hgn_valid = true;
 
         }
-        if(solverType_ == SolverType::LM)
-        {
-            delta_x_ = hgn;
-        }
-        else
-            if(DTD_SCALING)
-                hgn = D_.asDiagonal() * hgn;
-            ComputeDoglegStep();
-
     } else {
 
 //        TicToc t_Hmminv;
@@ -862,17 +853,21 @@ bool Problem::SolveLinearSystem() {
         hgn.tail(marg_size) = delta_x_ll;
 
 
-        if(solverType_ == SolverType::LM)
-        {
-                delta_x_ = hgn;
-        }
-        else
-            ComputeDoglegStep();
+
 
 
 //        std::cout << "schur time cost: "<< t_Hmminv.toc()<<std::endl;
     }
 
+    if(solverType_ == SolverType::LM)
+    {
+        delta_x_ = hgn;
+    }
+    else{
+        if(DTD_SCALING)
+            hgn = D_.asDiagonal() * hgn;
+        ComputeDoglegStep();
+    }
     if(JACOBIAN_SCALING)
     {
         delta_x_scaled_ = delta_x_;//用来算scale_，L(0) - L(Δw) = L(0) - L(Δx),由于采用的是右侧，所以备份解缩放前的delta_x_
@@ -1067,11 +1062,12 @@ void Problem::ComputeLambdaInit() {
 
     min_Lambda_ = 1e-8;
 
-    if(JACOBIAN_SCALING)
-        if(problemType_ == ProblemType::GENERIC_PROBLEM)
-            current_region_raidus_ = 1e4;
-        else
-            current_region_raidus_ = 1 / currentLambda_;//ceres中radius_的初始值为10000
+    if(JACOBIAN_SCALING){
+        current_region_raidus_ = 1e4;
+//        else
+//            current_region_raidus_ = 1 / currentLambda_;//ceres中radius_的初始值为10000
+
+    }
     else
         current_region_raidus_ = 1e2;
 

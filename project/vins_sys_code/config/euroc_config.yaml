@@ -96,7 +96,7 @@ hdl_choose: 1 #是否输出hdl选择过程
 radius_chi_g_output: 0 #是否输出dog-leg优化过程中的radius, chi,g
 
 show_lambda: 1 # 输出lambda变化过程
-jacobian_scaling: 0 #是否进行jacobian_scaling
+jacobian_scaling: 1 #是否进行jacobian_scaling
 #OPTIMIZE_LM
 optimize_lm: 0 #是否运行优化的部分
-DTD_scaling: 0 #是否将H+λI改成H+λDTD
+DTD_scaling: 1 #是否将H+λI改成H+λDTD
