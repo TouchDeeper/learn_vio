@@ -273,10 +273,7 @@ bool Problem::Solve(int iterations) {
 
 
             // 更新状态量
-            std::cout<<"start update states"<<std::endl;
             UpdateStates();
-            std::cout<<"finish update states"<<std::endl;
-
             if(VERBOSE)
             {
                 if(RADIUS_CHI_G_OUTPUT)
@@ -716,17 +713,6 @@ void Problem::SolveLinearSystem() {
 //        int hgn_invalid_times = 0;
 //        while (!hgn_valid)
 //        {
-        if(solverType_ == SolverType::HYBRID)
-        {
-            if(hybrid_method_type_ == HybridMethodType::QN)
-            {
-                delta_x_ = B_.ldlt().solve(b_);
-                if(delta_x_.norm() > current_region_raidus_)
-                    delta_x_ = current_region_raidus_ * delta_x_.normalized();
-            }
-
-        }
-
         if(DTD_SCALING)
         {
             if(!reuse_DTD_)
@@ -753,8 +739,20 @@ void Problem::SolveLinearSystem() {
 
 //          if(b_.transpose() * H * b_ <0)
 //               std::cerr<<"what a fuck, H is not semi-positive"<<std::endl;
-
-        hgn = H.ldlt().solve(b_);
+        switch (solverType_){
+            case SolverType::LM:
+            case SolverType::DOG_LEG:
+                hgn = H.ldlt().solve(b_);
+                break;
+            case SolverType::HYBRID:
+                if(hybrid_method_type_ == HybridMethodType::QN)
+                {
+                    delta_x_ = B_.ldlt().solve(b_);
+                    if(delta_x_.norm() > current_region_raidus_)
+                        delta_x_ = current_region_raidus_ * delta_x_.normalized();
+                } else
+                    hgn = H.ldlt().solve(b_);
+        }
 //            if(!IsArrayValid(hgn))
 //            {
 //                currentLambda_ *= ni_;
@@ -776,6 +774,13 @@ void Problem::SolveLinearSystem() {
 //        }
     } else {
 
+        if(hybrid_method_type_ == HybridMethodType::QN)
+        {
+            delta_x_ = B_.ldlt().solve(b_);
+            if(delta_x_.norm() > current_region_raidus_)
+                delta_x_ = current_region_raidus_ * delta_x_.normalized();
+            return;
+        }
 
 //        TicToc t_Hmminv;
         // step1: schur marginalization --> Hpp, bpp
@@ -791,26 +796,6 @@ void Problem::SolveLinearSystem() {
         // Hmm 是对角线矩阵，它的求逆可以直接为对角线块分别求逆，如果是逆深度，对角线块为1维的，则直接为对角线的倒数，这里可以加速
         MatXX Hmm_inv(MatXX::Zero(marg_size, marg_size));
         MatXX DTD;
-//        if(OPTIMIZE_LM){
-//            if(DTD_SCALING)
-//            {
-//                if(!reuse_DTD_)
-//                {
-//                    auto DTD_vec_ = Hessian_.diagonal();
-//                    //TODO use openMp
-//                    for (int i = 0; i < DTD_vec_.size(); ++i) {
-//                        DTD_vec_(i) = std::min(std::max(DTD_vec_(i), min_diagonal_),
-//                                              max_diagonal_);
-//                    }
-//                    DTD_Hmm_ = DTD_vec_.segment(reserve_size, marg_size).asDiagonal();
-//                    DTD_Hpp_ = DTD_vec_.segment(0, reserve_size).asDiagonal();
-//
-//                }
-//                Hmm += currentLambda_ * DTD_Hmm_;
-//                Hpp += currentLambda_ * DTD_Hpp_;
-//            }
-//
-//        }
         // TODO:: use openMP
         for (auto landmarkVertex : idx_landmark_vertices_) {
             int idx = landmarkVertex.second->OrderingId() - reserve_size;
@@ -1007,7 +992,6 @@ void Problem::UpdateStates() {
 
     // update vertex
     x_ = VecX::Zero(delta_x_.size());
-    std::cout<<"in update states"<<std::endl;
     for (auto vertex: verticies_) {
         vertex.second->BackUpParameters();    // 保存上次的估计值
 
@@ -1016,15 +1000,9 @@ void Problem::UpdateStates() {
         VecX delta = delta_x_.segment(idx, dim);
         vertex.second->Plus(delta);
         //TODO 为什么这里只能调用返回参数引用的Parameters
-//        std::cout<<" start update x"<<std::endl;
-//        std::cout<<x_.segment(idx, dim).size()<<std::endl;
-//        std::cout<<vertex.second->Parameters().size()<<std::endl;
         if(solverType_ == SolverType::HYBRID)
             x_.segment(idx, dim) = vertex.second->GetX();
-//        std::cout<<" finish update x"<<std::endl;
-
     }
-    std::cout<<"out update states"<<std::endl;
     // update prior
     if (err_prior_.rows() > 0) {
         // BACK UP b_prior_
