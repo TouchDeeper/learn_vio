@@ -68,8 +68,10 @@ verbose: 1 #是否详细输出
 stop_reason: 1 #是否输出每次迭代的停止原因
 stopThresholdGradient: 1e-3 # ||g|| < stopThresholdGradient
 #选择solver type (LM, DOGLEG)
-solver_type: DOGLEG
+#solver_type: DOGLEG
 #solver_type: LM
+solver_type: 1 # 0:LM 1:DOGLEG 2:HYBRID
+
 #LM
 optimize_lm: 0 #是否运行优化的部分
 new_lm_update: 0 # The new lm update strategy

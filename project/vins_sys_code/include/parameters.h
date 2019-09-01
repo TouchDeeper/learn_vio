@@ -22,7 +22,7 @@ extern int HDL_CHOOSE; //是否输出hdl选择过程
 extern int RADIUS_CHI_G_OUTPUT; //是否输出dog-leg优化过程中的radius, chi,g
 extern std::string sConfig_file;
 extern double stopThresholdGradient; // 迭代退出gradient阈值条件
-extern std::string SOLVER_TYPE; //选择solver type (LM, DOGLEG)
+extern int SOLVER_TYPE; //选择solver type (LM, DOGLEG)
 extern int OPTIMIZE_LM;
 extern int JACOBIAN_SCALING;
 extern int DTD_SCALING;
@@ -32,6 +32,7 @@ extern int NUM_MAKE_HESSIAN;
 extern int USE_OPENMP_THREADS;
 extern int NEW_LM_UPDATE;
 extern int SHOW_LAMBDA;
+extern enum enum_SOLVER_TYPE{LM, DOGLEG, HYBRID} k_SOLVER_TYPE;
 //feature tracker
 // extern int ROW;
 // extern int COL;

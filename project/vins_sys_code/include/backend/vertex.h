@@ -34,7 +34,8 @@ public:
 
     /// 返回参数值
     VecX Parameters() const { return parameters_; }
-
+    // 用于返回本地参数化的变量
+    virtual VecX GetX() { return parameters_; }
     /// 返回参数值的引用
     VecX &Parameters() { return parameters_; }
 

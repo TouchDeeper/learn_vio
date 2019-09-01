@@ -39,7 +39,12 @@ public:
 
     enum class SolverType {
         LM,
-        DOG_LEG
+        DOG_LEG,
+        HYBRID
+    };
+    enum class HybridMethodType {
+        LM,
+        QN
     };
 
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW;
@@ -97,12 +102,20 @@ public:
 
     void SetSolverType(SolverType solver_type){
         solverType_ = solver_type;
-        if (solver_type == SolverType::LM)
-        {
-            ni_ = 2;
-        } else
-        {
-            ni_ = 10;//ceres中给的是10,但curve_fitting跑的结果是２比较快，但是跑slam设置１０比较好
+
+        switch(solverType_){
+            case SolverType::LM:
+                std::cout<<"set SolveType : LM"<<std::endl;
+                ni_ = 2;
+                break;
+            case SolverType::DOG_LEG:
+                std::cout<<"set SolveType : DOG_LEG"<<std::endl;
+                ni_ = 10;
+                break;
+            case SolverType::HYBRID:
+                std::cout<<"set SolveType : HYBRID"<<std::endl;
+                ni_ = 2;
+                break;
         }
     }
 
@@ -129,7 +142,7 @@ private:
     void SchurSBA();
 
     /// 解线性方程
-    bool SolveLinearSystem();
+    void SolveLinearSystem();
 
     /// 更新状态变量
     void UpdateStates();
@@ -168,6 +181,18 @@ private:
     /// LM 算法中用于判断 Lambda 在上次迭代中是否可以，以及Lambda怎么缩放
     bool IsGoodStep();
     bool IsGoodStepInLM_NewUpdate();
+    bool IsGoodStepLM();
+    bool IsGoodStepDogleg();
+
+    //Hybrid method
+    bool IsGoodStepHybrid();
+    bool IsGoodStepQN(double);
+    bool IsGoodStepHybridLM(double);
+    bool make_hessian_Hybrid_in_advance;
+    double RecomputeTempChi();
+    int count_;
+    VecX x_;
+    void UpdateB();
     /// PCG 迭代线性求解器
     VecX PCGSolver(const MatXX &A, const VecX &b, int maxIter);
 
@@ -200,10 +225,12 @@ private:
 
     ProblemType problemType_;
     SolverType solverType_;
+    HybridMethodType hybrid_method_type_;
     /// 整个信息矩阵
     MatXX Hessian_;
     MatXX Hessian_backup;
     MatXX Hessian_false;
+    MatXX B_;
     VecX b_;
     VecX b_backup;
     VecX b_false;

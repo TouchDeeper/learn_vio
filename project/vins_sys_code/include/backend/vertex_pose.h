@@ -41,6 +41,7 @@ public:
      * 2. 若该Camera为measurement camera, 则维护vHessionMeasurementCamera；
      * 3. 并一直维护m_HessionDiagonal；
      */
+    virtual VecX GetX() override;
 };
 
 }

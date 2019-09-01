@@ -17,6 +17,14 @@ void VertexPose::Plus(const VecX &delta) {
 //    Qd test = Sophus::SO3d::exp(Vec3(0.2, 0.1, 0.1)).unit_quaternion() * Sophus::SO3d::exp(-Vec3(0.2, 0.1, 0.1)).unit_quaternion();
 //    std::cout << test.x()<<" "<< test.y()<<" "<<test.z()<<" "<<test.w() <<std::endl;
 }
-
+VecX VertexPose::GetX() {
+    VecX x = VecX::Zero(LocalDimension());
+    VecX &parameters = Parameters();
+    x.head<3>() = parameters.head<3>();
+    Qd q(parameters[6], parameters[3], parameters[4], parameters[5]);
+    Sophus::SO3d SO3_q(q);
+    x.segment(3,3) = SO3_q.log();
+    return x;
+}
 }
 }

@@ -90,12 +90,20 @@ int main()
     }
 
 
-    std::cout<<"\nTest CurveFitting start..."<<std::endl;
-    /// 使用 LM 求解
-    if(SOLVER_TYPE == "LM")
-        problem.SetSolverType(Problem::SolverType::LM);
-    else
-        problem.SetSolverType(Problem::SolverType::DOG_LEG);
+//    std::cout<<"\nTest CurveFitting start..."<<std::endl;
+    switch(k_SOLVER_TYPE){
+        case LM:
+            problem.SetSolverType(Problem::SolverType::LM);
+            break;
+        case DOGLEG:
+            problem.SetSolverType(Problem::SolverType::DOG_LEG);
+            break;
+        case HYBRID:
+            problem.SetSolverType(Problem::SolverType::HYBRID);
+            break;
+
+    }
+
     problem.Solve(30);
 
     std::cout << "-------After optimization, we got these parameters :" << std::endl;
