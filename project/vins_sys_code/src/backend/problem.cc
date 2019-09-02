@@ -1240,7 +1240,7 @@ bool Problem::IsGoodStepDogleg(){
 //            ni_ *= 2;
 //           dogleg Lambda update method
 //            ni_ = 10;
-//            currentLambda_ *= ni_;
+            currentLambda_ *= ni_;
 
         reuse_a_ = true;
         reuse_DTD_ = true;
