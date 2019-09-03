@@ -120,7 +120,7 @@ int main(int argc, char **argv)
         NOW_LOOP = LOOP_PARAMETER[i];
         for ( RUN_COUNT = 0; RUN_COUNT < RUN_NUM; ++RUN_COUNT) {
             pSystem.reset(new System(sConfig_path,"sim"));
-
+            // TODO remember to modify the ouput path
             std::thread thd_BackEnd(&System::ProcessBackEnd, pSystem);
 
             // sleep(5);

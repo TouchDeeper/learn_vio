@@ -1,5 +1,6 @@
 #include "parameters.h"
 #include <iostream>
+#include <iomanip>
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/core/eigen.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -243,14 +244,17 @@ void readParameters(string config_file)
     }
     fsSettings.release();
 
-    cout << "1 readParameters:  "
+    cout<< "1 readParameters:  "
         <<  "\n  INIT_DEPTH: " << INIT_DEPTH
         <<  "\n  MIN_PARALLAX: " << MIN_PARALLAX
-        <<  "\n  LOOP_NOW:"<<NOW_LOOP<<"  RUN COUNT = "<<RUN_COUNT
+        <<  "\n  LOOP_NOW:"<<NOW_LOOP<<"  RUN COUNT = "<<RUN_COUNT;
+    cout<<fixed
+        <<std::setprecision(18)
         <<  "\n  ACC_N: " <<ACC_N
         <<  "\n  ACC_W: " <<ACC_W
         <<  "\n  GYR_N: " <<GYR_N
-        <<  "\n  GYR_W: " <<GYR_W
+        <<  "\n  GYR_W: " <<GYR_W;
+    cout<<std::setprecision(6)
         <<  "\n  RIC:   " << RIC[0]
         <<  "\n  TIC:   " <<TIC[0].transpose()
         <<  "\n  G:     " <<G.transpose()

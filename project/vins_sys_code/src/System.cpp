@@ -41,9 +41,7 @@ System::System(const string sConfig_file_, const string sConfig_type_)
     trackerData[0].readIntrinsicParameter(sConfig_file);
 
     estimator.setParameter();
-//    string sPose_file = "./" + NOW_LOOP + "/"  + "27traj" + to_string(RUN_COUNT) + ".txt";
-//    string sPose_file = "./" + NOW_LOOP + "/"  + "traj" + ".txt";
-    string sPose_file = "./pose_output_" + sConfig_type_  + ".txt";
+    string sPose_file = "./" + NOW_LOOP + "/"  + "traj" + to_string(RUN_COUNT) + ".txt";
 //    string sPose_file = "./pose_output_" + sConfig_type_ + to_string(RUN_COUNT) + ".txt";
 //    ofs_pose.open("./pose_output.txt",fstream::app | fstream::out);
     ofs_pose.open(sPose_file,fstream::trunc | fstream::out);
