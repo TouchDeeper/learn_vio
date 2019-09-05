@@ -83,7 +83,10 @@ add_executable(run_euroc test/run_euroc.cpp)
 target_link_libraries(run_euroc 
   MyVio  
   -lpthread)
-
+add_executable(run_euroc_loop test/run_euroc_loop.cpp)
+target_link_libraries(run_euroc_loop
+		MyVio
+		-lpthread)
 add_executable(run_sim test/run_sim.cpp)
 target_link_libraries(run_sim
 		MyVio
