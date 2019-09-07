@@ -111,6 +111,7 @@ int main(int argc, char **argv)
 //	}
 //	sData_path = argv[1];
 //	sConfig_path = argv[2];
+    RUN_LOOP = true;
     RUN_NUM = 27;          // loop tims, must be odd
     LOOP_PARAMETER.emplace_back("ACC_N");
     LOOP_PARAMETER.emplace_back("GYR_N");

@@ -32,6 +32,8 @@ extern int NUM_MAKE_HESSIAN;
 extern int USE_OPENMP_THREADS;
 extern int NEW_LM_UPDATE;
 extern int SHOW_LAMBDA;
+extern int CAM_WITH_NOISE;
+extern bool RUN_LOOP;
 extern enum enum_SOLVER_TYPE{LM, DOGLEG, HYBRID} k_SOLVER_TYPE;
 //feature tracker
 // extern int ROW;

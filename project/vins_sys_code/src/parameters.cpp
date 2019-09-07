@@ -31,6 +31,8 @@ int NUM_MAKE_HESSIAN ;
 int USE_OPENMP_THREADS;
 int NEW_LM_UPDATE;
 int SHOW_LAMBDA;
+int CAM_WITH_NOISE;
+bool RUN_LOOP = false;
 
 vector<Eigen::Matrix3d> RIC;
 vector<Eigen::Vector3d> TIC;
@@ -117,6 +119,7 @@ void readParameters(string config_file)
     USE_OPENMP_THREADS = fsSettings["use_openmp_threads"];
     NEW_LM_UPDATE = fsSettings["new_lm_update"];
     SHOW_LAMBDA = fsSettings["show_lambda"];
+    CAM_WITH_NOISE = fsSettings["cam_with_noise"];
 
     T_HESSIAN_ALL = 0;
     NUM_MAKE_HESSIAN = 0;
@@ -289,7 +292,8 @@ void readParameters(string config_file)
         <<  "\n  jacobian_scaling :"<<JACOBIAN_SCALING
         <<  "\n  DTD_scaling :"<<DTD_SCALING
         <<  "\n  USE OPENMP THREADS :"<<USE_OPENMP_THREADS
-        <<  "\n  NEW LM UPDATE STRATEGY: :"<<NEW_LM_UPDATE
+        <<  "\n  NEW LM UPDATE STRATEGY :"<<NEW_LM_UPDATE
+        <<  "\n  CAM WITH NOISE :"<<CAM_WITH_NOISE
     << endl;
 
 }

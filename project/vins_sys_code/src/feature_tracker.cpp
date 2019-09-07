@@ -242,11 +242,22 @@ void FeatureTracker::readFeatures(const std::vector<cv::Point2f>  &features_norm
     //将归一化平面的坐标转换成图像平面的坐标
     std::vector<cv::Point2f>  features;//图像平面的特征点坐标
     for (int i = 0; i < features_norm_plane.size(); ++i) {
-        Eigen::Vector2d feature_norm_plane_tmp(features_norm_plane[i].x, features_norm_plane[i].y);
-        Eigen::Vector2d feature_tmp;
-        m_camera->undistToPlane(feature_norm_plane_tmp, feature_tmp);
-        features.emplace_back(cv::Point2f(feature_tmp(0), feature_tmp(1)));
+        if(CAM_WITH_NOISE)
+            features.emplace_back(cv::Point2f(features_norm_plane[i].x, features_norm_plane[i].y));//喂的是像素平面的特征
+        else{
+            //喂的是归一化平面的特征
+            Eigen::Vector2d feature_norm_plane_tmp(features_norm_plane[i].x, features_norm_plane[i].y);
+            Eigen::Vector2d feature_tmp;
+            m_camera->undistToPlane(feature_norm_plane_tmp, feature_tmp);
+            features.emplace_back(cv::Point2f(feature_tmp(0), feature_tmp(1)));
+        }
+
+
+
+
     }
+
+
 //    std::cout<<"features_norm_plane[3] :"<<std::endl<<features_norm_plane[3]<<std::endl;
 
 //    if (forw_pts.empty())

@@ -25,7 +25,8 @@ std::shared_ptr<System> pSystem;
 
 void PubImuData()
 {
-	string sImu_data_file = sConfig_path + "data/imu_pose_noise.txt";//记得改config文件
+    string sImu_data_file;
+    sImu_data_file = sConfig_path + "data/imu_pose_noise.txt";//记得改config文件
 //	string sImu_data_file = sConfig_path + "data/imu_pose.txt";
 	cout << "1 PubImuData start sImu_data_filea: " << sImu_data_file << endl;
 	ifstream fsImu;
@@ -57,7 +58,11 @@ void PubImageData()
 {
     int i = 0;
     while (true) {
-        string sImage_file = sConfig_path + "data/keyframe/all_points_" + std::to_string(i) + ".txt";
+        string sImage_file;
+        if(CAM_WITH_NOISE)
+            sImage_file = sConfig_path + "data/keyframe/pixel_all_points_" + std::to_string(i) + ".txt";
+        else
+            sImage_file = sConfig_path + "data/keyframe/all_points_" + std::to_string(i) + ".txt";
 
         cout << "1 PubImageData start sImage_file: " << sImage_file << endl;
 
