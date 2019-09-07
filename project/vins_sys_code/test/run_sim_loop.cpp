@@ -57,7 +57,11 @@ void PubImageData()
 {
     int i = 0;
     while (true) {
-        string sImage_file = sConfig_path + "data/keyframe/all_points_" + std::to_string(i) + ".txt";
+        string sImage_file;
+        if(CAM_WITH_NOISE)
+            sImage_file = sConfig_path + "data/keyframe/pixel_all_points_" + std::to_string(i) + ".txt";
+        else
+            sImage_file = sConfig_path + "data/keyframe/all_points_" + std::to_string(i) + ".txt";
 
         cout << "1 PubImageData start sImage_file: " << sImage_file << endl;
 

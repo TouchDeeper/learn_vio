@@ -43,7 +43,7 @@ System::System(const string sConfig_file_, const string sConfig_type_)
     estimator.setParameter();
     string sPose_file;
     if(RUN_LOOP)
-        sPose_file = "./" + sConfig_type_ + "_results/" + NOW_LOOP + "/traj" + to_string(RUN_COUNT) + ".txt";
+        sPose_file = "./" + sConfig_type_ + "_results_noise/" + NOW_LOOP + "/traj" + to_string(RUN_COUNT) + ".txt";
     else
         sPose_file = "./pose_output_" + sConfig_type_ + ".txt";
 //    ofs_pose.open("./pose_output.txt",fstream::app | fstream::out);
