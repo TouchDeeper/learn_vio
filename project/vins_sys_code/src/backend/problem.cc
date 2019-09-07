@@ -567,54 +567,65 @@ void Problem::MultiThreadMakeHessian() {
     std::vector<VecX,Eigen::aligned_allocator<VecX>> b_vec(USE_OPENMP_THREADS,VecX::Zero(size));
 
     omp_set_num_threads(USE_OPENMP_THREADS);
-#pragma omp parallel for
-    for (int k = 0; k < edges.size(); ++k) {
+#pragma omp parallel
+    {
+//        MatXX H_local = H_vec[omp_get_thread_num()];
+//        VecX b_local = b_vec[omp_get_thread_num()];
+#pragma omp for
+        for (int k = 0; k < edges.size(); ++k) {
 
-        edges[k]->ComputeResidual();
-        edges[k]->ComputeJacobians();
+            edges[k]->ComputeResidual();
+            edges[k]->ComputeJacobians();
 
-        auto jacobians = edges[k]->Jacobians();
-        auto verticies = edges[k]->Verticies();
-        assert(jacobians.size() == verticies.size());
-        for (size_t i = 0; i < verticies.size(); ++i) {
-            auto v_i = verticies[i];
-            if (v_i->IsFixed()) continue;    // Hessian 里不需要添加它的信息，也就是它的雅克比为 0
+            auto jacobians = edges[k]->Jacobians();
+            auto verticies = edges[k]->Verticies();
+            assert(jacobians.size() == verticies.size());
+            for (size_t i = 0; i < verticies.size(); ++i) {
+                auto v_i = verticies[i];
+                if (v_i->IsFixed()) continue;    // Hessian 里不需要添加它的信息，也就是它的雅克比为 0
 
-            auto jacobian_i = jacobians[i];
-            ulong index_i = v_i->OrderingId();
-            ulong dim_i = v_i->LocalDimension();
+                auto jacobian_i = jacobians[i];
+                ulong index_i = v_i->OrderingId();
+                ulong dim_i = v_i->LocalDimension();
 
-            // 鲁棒核函数会修改残差和信息矩阵，如果没有设置 robust cost function，就会返回原来的
-            double drho;
-            MatXX robustInfo(edges[k]->Information().rows(),edges[k]->Information().cols());
-            edges[k]->RobustInfo(drho,robustInfo);
+                // 鲁棒核函数会修改残差和信息矩阵，如果没有设置 robust cost function，就会返回原来的
+                double drho;
+                MatXX robustInfo(edges[k]->Information().rows(),edges[k]->Information().cols());
+                edges[k]->RobustInfo(drho,robustInfo);
 
-            MatXX JtW = jacobian_i.transpose() * robustInfo;
-            edges[k]->jacobians_robust_.push_back(JtW);
-            for (size_t j = i; j < verticies.size(); ++j) {
-                auto v_j = verticies[j];
+                MatXX JtW = jacobian_i.transpose() * robustInfo;
+                edges[k]->jacobians_robust_.push_back(JtW);
+                for (size_t j = i; j < verticies.size(); ++j) {
+                    auto v_j = verticies[j];
 
-                if (v_j->IsFixed()) continue;
+                    if (v_j->IsFixed()) continue;
 
-                auto jacobian_j = jacobians[j];
-                ulong index_j = v_j->OrderingId();
-                ulong dim_j = v_j->LocalDimension();
+                    auto jacobian_j = jacobians[j];
+                    ulong index_j = v_j->OrderingId();
+                    ulong dim_j = v_j->LocalDimension();
 
-                assert(v_j->OrderingId() != -1);
-                MatXX hessian = JtW * jacobian_j;
+                    assert(v_j->OrderingId() != -1);
+                    MatXX hessian = JtW * jacobian_j;
 
-                // 所有的信息矩阵叠加起来
-                H_vec[omp_get_thread_num()].block(index_i, index_j, dim_i, dim_j).noalias() += hessian;
-                if (j != i) {
-                    // 对称的下三角
-                    H_vec[omp_get_thread_num()].block(index_j, index_i, dim_j, dim_i).noalias() += hessian.transpose();
+                    // 所有的信息矩阵叠加起来
+//                    H_local.block(index_i, index_j, dim_i, dim_j).noalias() += hessian;
+                    H_vec[omp_get_thread_num()].block(index_i, index_j, dim_i, dim_j).noalias() += hessian;
+                    if (j != i) {
+                        // 对称的下三角
+//                        H_local.block(index_j, index_i, dim_j, dim_i).noalias() += hessian.transpose();
+                        H_vec[omp_get_thread_num()].block(index_j, index_i, dim_j, dim_i).noalias() += hessian.transpose();
 
+                    }
                 }
+//                b_local.segment(index_i, dim_i).noalias() -= drho * jacobian_i.transpose()* edges[k]->Information() * edges[k]->Residual();
+                b_vec[omp_get_thread_num()].segment(index_i, dim_i).noalias() -= drho * jacobian_i.transpose()* edges[k]->Information() * edges[k]->Residual();
             }
-            b_vec[omp_get_thread_num()].segment(index_i, dim_i).noalias() -= drho * jacobian_i.transpose()* edges[k]->Information() * edges[k]->Residual();
-        }
 
+        }
+//        H_vec[omp_get_thread_num()] = H_local;
+//        b_vec[omp_get_thread_num()] = b_local;
     }
+
     for (int l = 0; l < USE_OPENMP_THREADS; ++l) {
         H += H_vec[l];
         b += b_vec[l];
